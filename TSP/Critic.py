@@ -15,14 +15,12 @@ class Critic(nn.Module):
                  use_cuda=False):
         super(Critic, self).__init__()
 
-        # self.embedding_size = embedding_size
         self.hidden_size = hidden_size
         self.n_glimpses = n_glimpses
         self.seq_len = seq_len
         self.num_processing = num_processing
         self.use_cuda = use_cuda
 
-        # self.embedding = GraphEmbedding(2, embedding_size, use_cuda=use_cuda)
         self.encoder = nn.LSTM(embedding_size, hidden_size, batch_first=True)
         # self.decoder = nn.LSTM(embedding_size, hidden_size, batch_first=True)
         self.fc1 = nn.Linear(hidden_size, hidden_size)
@@ -46,8 +44,6 @@ class Critic(nn.Module):
         batch_size = inputs.size(0)
         seq_len = inputs.size(2)
         assert seq_len == self.seq_len
-
-        # embedded = self.embedding(inputs)
 
         # The encoder simply runs the embedding
         encoder_outputs, (hidden, context) = self.encoder(input_embedded)

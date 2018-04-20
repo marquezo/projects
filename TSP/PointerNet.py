@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from GraphEmbedding import GraphEmbedding
 from Attention import Attention
 
+
 class PointerNet(nn.Module):
     def __init__(self,
                  embedding_size,
@@ -46,7 +47,6 @@ class PointerNet(nn.Module):
             else:
                 nn.init.uniform(p, -0.08, 0.08)
 
-
     """
     idxs: indeces that were previously chosen
     logits: probabilities for current step
@@ -61,7 +61,7 @@ class PointerNet(nn.Module):
             logits[clone_mask] = -np.inf
         return logits, clone_mask
 
-    def forward(self, inputs):
+    def forward(self, inputs, T=1.0):
         """
         Args:
             inputs: [batch_size x 1 x sourceL]
@@ -102,14 +102,14 @@ class PointerNet(nn.Module):
             logits, mask = self.apply_mask_to_logits(logits, mask, idxs)
 
             # [batch size x seq_len]
-            probs = F.softmax(logits, dim=1)
+            probs = F.softmax(logits / T, dim=1)
 
             # Give me the index that will be chosen: [batch_size]
             idxs = probs.multinomial().squeeze(1)
 
             for old_idxs in prev_idxs:
                 if old_idxs.eq(idxs).data.any():
-                    print (seq_len)
+                    print seq_len
                     print(' RESAMPLE!')
                     idxs = probs.multinomial().squeeze(1)
                     break
