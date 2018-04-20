@@ -32,6 +32,12 @@ class Critic(nn.Module):
         self.fc1.weight = torch.nn.init.uniform(self.fc1.weight, -0.08, 0.08)
         self.fc2.weight = torch.nn.init.uniform(self.fc2.weight, -0.08, 0.08)
 
+        for p in self.encoder.parameters():
+            if p.dim() == 1:
+                nn.init.constant(p, 0)
+            else:
+                nn.init.uniform(p, -0.08, 0.08)
+
     def forward(self, inputs, input_embedded):
         """
         Args:

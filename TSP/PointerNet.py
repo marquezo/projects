@@ -29,10 +29,23 @@ class PointerNet(nn.Module):
         self.encoder = nn.LSTM(embedding_size, hidden_size, batch_first=True)
         self.decoder = nn.LSTM(embedding_size, hidden_size, batch_first=True)
         self.pointer = Attention(hidden_size, use_tanh=use_tanh, C=tanh_exploration, name=attention, use_cuda=use_cuda)
-        self.glimpse = Attention(hidden_size, use_tanh=False, name=attention, use_cuda=use_cuda)
+        self.glimpse = Attention(hidden_size, use_tanh=use_tanh, C=tanh_exploration, name=attention, use_cuda=use_cuda)
 
         self.decoder_start_input = nn.Parameter(torch.FloatTensor(embedding_size))
         self.decoder_start_input.data.uniform_(-(1. / math.sqrt(embedding_size)), 1. / math.sqrt(embedding_size))
+
+        for p in self.encoder.parameters():
+            if p.dim() == 1:
+                nn.init.constant(p, 0)
+            else:
+                nn.init.uniform(p, -0.08, 0.08)
+
+        for p in self.decoder.parameters():
+            if p.dim() == 1:
+                nn.init.constant(p, 0)
+            else:
+                nn.init.uniform(p, -0.08, 0.08)
+
 
     """
     idxs: indeces that were previously chosen
@@ -96,7 +109,7 @@ class PointerNet(nn.Module):
 
             for old_idxs in prev_idxs:
                 if old_idxs.eq(idxs).data.any():
-                    print seq_len
+                    print (seq_len)
                     print(' RESAMPLE!')
                     idxs = probs.multinomial().squeeze(1)
                     break

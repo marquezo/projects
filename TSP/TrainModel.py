@@ -119,7 +119,7 @@ class TrainModel:
             #                         self.val_tour.append(R.mean().data[0])
 
             if self.threshold and self.train_tour[-1] < self.threshold:
-                print "EARLY STOPPAGE!"
+                print ("EARLY STOPPAGE!")
                 break
 
             self.epochs += 1
