@@ -109,7 +109,7 @@ class PointerNet(nn.Module):
 
             for old_idxs in prev_idxs:
                 if old_idxs.eq(idxs).data.any():
-                    print seq_len
+                    print (seq_len)
                     print(' RESAMPLE!')
                     idxs = probs.multinomial().squeeze(1)
                     break
