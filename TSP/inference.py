@@ -134,4 +134,4 @@ def sample_solution(input, model, batch_size, T=1.0):
     for i in range(input.size(-1)):
         soln[i] = actions[i][idx_min_tour].data
 
-    return soln
+    return soln, min_tour_length
