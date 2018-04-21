@@ -113,7 +113,7 @@ def active_search(input, model, num_candidates, batch_size, alpha=0.99, lr=1e-6)
 # num_candidates: how many solutions to try
 # batch_size
 #################################################################################
-def sample_solution(input, model, batch_size):
+def sample_solution(input, model, batch_size, T=1.0):
     shuffled_input = input.unsqueeze(0).repeat(batch_size, 1, 1)
 
     # Shuffled the input for batch_size times
@@ -121,7 +121,7 @@ def sample_solution(input, model, batch_size):
         shuffled_input[i] = shuffle_tensor(shuffled_input[i])
 
     shuffled_input = Variable(shuffled_input)
-    R, probs, actions, action_idxs, critic_evals = model(shuffled_input)
+    R, probs, actions, action_idxs, critic_evals = model(shuffled_input, T=T)
 
     # R is tensor of size batch_size
     # Pick the shortest tour
