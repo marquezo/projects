@@ -18,28 +18,30 @@ USE_CUDA = torch.cuda.is_available()
 
 if __name__ == '__main__':
 
-    train_20_dataset = TSPDataset(20, train_size)
-    val_20_dataset = TSPDataset(20, val_size)
+    lr_actor = float(sys.argv[1])
+    lr_critic = float(sys.argv[2])
+    seq_len = int(sys.argv[3])
+    num_epochs = int(sys.argv[4])
 
-    tsp_20_model = CombinatorialRL(
+    train_dataset = TSPDataset(seq_len, train_size)
+    val_dataset = TSPDataset(seq_len, val_size)
+
+    tsp_model = CombinatorialRL(
         embedding_size,
         hidden_size,
-        20,
+        seq_len,
         n_glimpses,
         tanh_exploration,
         use_tanh,
         attention="Bahdanau",
         use_cuda=USE_CUDA)
 
-    lr_actor = float(sys.argv[1])
-    lr_critic = float(sys.argv[2])
-
-    tsp_20_train = TrainModel(tsp_20_model,
-                              train_20_dataset,
-                              val_20_dataset,
+    tsp_train = TrainModel(tsp_model,
+                              train_dataset,
+                              val_dataset,
                               threshold=3.99, use_cuda=USE_CUDA)
 
-    tsp_20_train.train_and_validate(n_epochs=5,
+    tsp_train.train_and_validate(n_epochs=num_epochs,
                                     lr_actor=lr_actor,
                                     lr_critic=lr_critic)
 
