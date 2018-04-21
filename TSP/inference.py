@@ -3,6 +3,7 @@ import torch
 import torch.optim as optim
 from torch.autograd import Variable
 import numpy as np
+import math
 
 def reward_single_input(sample_solution):
     """
@@ -50,7 +51,8 @@ def active_search(input, model, num_candidates, batch_size, alpha=0.99, lr=1e-5)
     # Create random solution
     soln = shuffle_tensor(input)
     soln_tour_length = reward_single_input(soln.t())
-    n = torch.ceil(torch.FloatTensor([num_candidates / batch_size])).int()
+
+    n = int(math.ceil(num_candidates/batch_size))
 
     for batch_id in range(n):
 
