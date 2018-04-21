@@ -43,14 +43,14 @@ def create_graph(num_nodes):
 # alpha: for the exponential moving average
 # lr: learning rate to use
 #################################################################################
-def active_search(input, model, num_candidates, batch_size, alpha=0.99, lr=1e-6):
+def active_search(input, model, num_candidates, batch_size, alpha=0.99, lr=1e-5):
     baseline = torch.zeros(1)
     actor_optim = optim.Adam(model.actor.parameters(), lr=lr)
 
     # Create random solution
     soln = shuffle_tensor(input)
     soln_tour_length = reward_single_input(soln.t())
-    n = torch.ceil(torch.FloatTensor([num_candidates / batch_size]))
+    n = torch.ceil(torch.FloatTensor([num_candidates / batch_size])).int()
 
     for batch_id in range(n):
 
@@ -104,7 +104,7 @@ def active_search(input, model, num_candidates, batch_size, alpha=0.99, lr=1e-6)
 
         actor_optim.step()
 
-    return soln
+    return soln, soln_tour_length
 
 
 #################################################################################
