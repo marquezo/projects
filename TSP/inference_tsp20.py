@@ -35,11 +35,21 @@ tsp20_dataset = pickle.load(open("test_data_set_20", "rb"))
 tsp20_loader = DataLoader(tsp20_dataset, batch_size=1, shuffle=False, num_workers=1)
 
 sum_tour_length = 0.0
-
+tours = []
 for batch_id, sample_batch in enumerate(tsp20_loader):
         sample_batch = sample_batch.squeeze()
-        soln_sampling, min_tour_len = sample_solution(sample_batch, tsp20, 128, T=2.0)
+	lengths = []
+	solns = []
+	for i in range(10):
+        	soln_sampling, tour_len = sample_solution(sample_batch, tsp20, 128, T=2.0)
+		lengths.append(tour_len.data[0])
+	idx = np.argmin(lengths)
+	min_tour_len = lengths[idx]
         sum_tour_length +=  min_tour_len
-        print "batch id {}, result: {}".format(batch_id, min_tour_len.data[0])
+	tours.append(min_tour_len)
+        print "batch id {}, result: {}".format(batch_id, min_tour_len)
+tf = open('tours_tsp20', 'wb')
+pickle.dump(tours,tf)
+tf.close()
 
 print "Result: ", (sum_tour_length/1000.0)
