@@ -27,36 +27,28 @@ tsp50 = CombinatorialRL(
         attention="Bahdanau",
         use_cuda=USE_CUDA)
 
-if(USE_CUDA):
-	state = torch.load('Model/TSP50/tsp_model_T50_001.pt')
-else:
-	state = torch.load('Model/TSP50/tsp_model_T50_001.pt', map_location=lambda storage, loc:storage)
-
+state = torch.load('Model/TSP50/tsp_model_T50_001.pt', map_location=lambda storage, loc:storage)
 tsp50.load_state_dict(state)
+
+if USE_CUDA:
+        tsp50 = tsp50.cuda()
 
 tsp50_dataset = pickle.load(open("test_data_set_50", "rb"))
 
 tsp50_loader = DataLoader(tsp50_dataset, batch_size=1, shuffle=False, num_workers=1)
 
-sum_solutions = 0.0
+tour_lengths = []
 
-tours = []
 for batch_id, sample_batch in enumerate(tsp50_loader):
         sample_batch = sample_batch.squeeze()
+
         if USE_CUDA:
                 sample_batch = sample_batch.cuda()
-	lengths = []
-	for i in range(10):
-        	soln_sampling, tour_len  = sample_solution(sample_batch, tsp50, 128, T=2.2)
-		lengths.append(tour_len.data[0])
-	idx = np.argmin(lengths)
-	min_tour_len = lengths[idx]
-        sum_tour_length +=  min_tour_len
-	tours.append(min_tour_len)
-        print "batch id {}, result: {}".format(batch_id, min_tour_len)
+        #1e-5 was used by authors
+        soln_sampling, min_tour_len = active_search(sample_batch, tsp50, 1280, 128, lr=1e-5)
+        tour_lengths.append(min_tour_len)
+        print ("batch id {}, result: {}".format(batch_id, min_tour_len))
 
-tf = open('tours_infe_tsp50', 'wb')
-pickle.dump(tours,tf)
-tf.close()
-
-print "Result: ", (sum_tour_length/1000.0)
+file = open('results_active_search_tsp50', 'wb')
+pickle.dump(tour_lengths, file)
+file.close()
