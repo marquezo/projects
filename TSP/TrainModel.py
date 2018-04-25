@@ -103,9 +103,9 @@ class TrainModel:
 
                 if batch_id % 100 == 0:
                     #self.plot(self.epochs)
-                    torch.save(self.model.state_dict(), 'tsp_model.pt')
+                    torch.save(self.model.state_dict(), 'tsp_model_general.pt')
 
-                    file = open('tour_length', 'wb')
+                    file = open('tour_length_general', 'wb')
                     pickle.dump(self.train_tour, file)
                     file.close()
 
