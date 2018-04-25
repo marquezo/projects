@@ -68,7 +68,7 @@ class PointerNet(nn.Module):
         """
         batch_size = inputs.size(0)
         seq_len = inputs.size(2)
-        assert seq_len == self.seq_len
+        #assert seq_len == self.seq_len
 
         embedded = self.embedding(inputs)
 
