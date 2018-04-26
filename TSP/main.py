@@ -19,9 +19,9 @@ USE_CUDA = torch.cuda.is_available()
 if __name__ == '__main__':
 
     lr_actor = float(sys.argv[1])
-    lr_critic = float(sys.argv[2])
-    seq_len = int(sys.argv[3])
-    num_epochs = int(sys.argv[4])
+    #lr_critic = float(sys.argv[2])
+    seq_len = int(sys.argv[2])
+    num_epochs = int(sys.argv[3])
 
     train_dataset = TSPDataset(seq_len, train_size)
     val_dataset = TSPDataset(seq_len, val_size)
@@ -43,6 +43,6 @@ if __name__ == '__main__':
 
     tsp_train.train_and_validate(n_epochs=num_epochs,
                                     lr_actor=lr_actor,
-                                    lr_critic=lr_critic)
+                                    lr_critic=None)
 
 

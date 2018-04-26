@@ -30,7 +30,7 @@ class TrainModel:
         self.epochs = 0
         self.beta = 0.9  # For exponential moving average if no critic is used
 
-    def train_and_validate(self, n_epochs, lr_actor, lr_critic, use_critic=False):
+    def train_and_validate(self, n_epochs, lr_actor, lr_critic=None, use_critic=False):
 
         self.actor_optim = optim.Adam(self.model.actor.parameters(), lr=lr_actor)
 
