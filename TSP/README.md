@@ -3,8 +3,3 @@ Solving the Travelling Salesman problem using RL and Pointer Networks. We reprod
 
 We borrowed initial setup from https://github.com/higgsfield/np-hard-deep-reinforcement-learning
 
-Team: 
-- Orlando Marquez (McGill ID: 260795274)
-- Defeng Liu (McGill ID: )
-- Kamil Legault (McGill ID: )
-
