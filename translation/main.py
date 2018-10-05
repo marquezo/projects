@@ -6,6 +6,9 @@ import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():
+
+    print("Using device {}".format(device))
+
     input_lang, output_lang, pairs = prepareData('eng', 'fra', False)
     hidden_size = 256
     encoder1 = EncoderRNN(input_lang.n_words, hidden_size).to(device)
