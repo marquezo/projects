@@ -73,4 +73,4 @@ tf = open(results_saved_loc, 'wb')
 pickle.dump(tours, tf)
 tf.close()
 
-print "Average length of tour: ", (np.mean(tours))
+print ("Average length of tour: ", (np.mean(tours)))

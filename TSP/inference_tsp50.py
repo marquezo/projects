@@ -51,7 +51,7 @@ for batch_id, sample_batch in enumerate(tsp50_loader):
 		lengths.append(tour_len.data[0])
 	idx = np.argmin(lengths)
 	min_tour_len = lengths[idx]
-        sum_tour_length +=  min_tour_len
+
 	tours.append(min_tour_len)
         print "batch id {}, result: {}".format(batch_id, min_tour_len)
 

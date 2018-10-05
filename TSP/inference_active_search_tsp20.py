@@ -45,10 +45,10 @@ for batch_id, sample_batch in enumerate(tsp20_loader):
         if USE_CUDA:
                 sample_batch = sample_batch.cuda()
         #1e-5 was used by authors
-        soln_sampling, min_tour_len = active_search(sample_batch, tsp20, 12800, 128, lr=1e-5)
+        soln_sampling, min_tour_len = active_search(sample_batch, tsp20, 1280, 128, lr=1e-5)
         tour_lengths.append(min_tour_len)
         print ("batch id {}, result: {}".format(batch_id, min_tour_len))
 
-file = open('results_active_search_tsp20', 'wb')
+file = open('results_active_search_tsp20_1280', 'wb')
 pickle.dump(tour_lengths, file)
 file.close()
