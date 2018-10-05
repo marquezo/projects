@@ -6,3 +6,4 @@ Experimentation
 3. Experimenting with scikit-learn tools: Basic sentiment analysis using the IMDB data set (http://ai.stanford.edu/~amaas/data/sentiment/)
 4. Coding K-means, Gaussian Mixture model and Hidden Markov Models. Solving them through Expectation Maximization
 5. Reinforcement Learning exploration (RL folder)
+6. TSP: Using Reinforcement Learning to solve the Travelling Salesman Problem. Use of REINFORCE algorithm on an NP classic combinatorial problem.
