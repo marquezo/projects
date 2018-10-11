@@ -143,39 +143,48 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
         print("Average Loss after epoch {}/{}: {:5f}".format(epoch_idx + 1, n_epochs, print_loss_total/len(train_data)))
 
 
-def evaluate(input_lang, output_lang, encoder, decoder, sentence):
+def evaluate(valid_data, input_lang, output_lang, encoder, decoder, batch_size):
     with torch.no_grad():
-        input_tensor = tensorFromSentence(input_lang, sentence)
-        input_length = input_tensor.size()[0]
-        encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
+        start_batch_idx = 0
+        end_batch_idx = np.minimum(batch_size, len(valid_data))
 
-        for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(input_tensor[ei],
-                                                     encoder_hidden)
-            encoder_outputs[ei] += encoder_output[0, 0]
+        while start_batch_idx < len(valid_data):
 
-        decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+            input_tensor, target_tensor = get_minibatch(valid_data[start_batch_idx:end_batch_idx], input_lang, output_lang)
 
-        decoder_hidden = encoder_hidden
+            input_length = input_tensor.size(0)
+            encoder_hidden = encoder.initHidden(input_length)
+            encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
+            encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
+            decoder_hidden = encoder_hidden
+
+            # TODO change this to use beam search
+            decoder_output, decoder_hidden = decoder(target_tensor, decoder_hidden)
+
+            print_results(valid_data[start_batch_idx:end_batch_idx], decoder_output, output_lang)
+
+            start_batch_idx = end_batch_idx
+            end_batch_idx = np.minimum(end_batch_idx + batch_size, len(valid_data))
+
+            
+def print_results(input_sentences, output_tensor, output_lang):
+
+    for sample_idx in range(output_tensor.size(0)):
 
         decoded_words = []
 
-        for di in range(input_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
+        for token_idx in range(output_tensor.size(1)):
 
-            topv, topi = decoder_output.data.topk(1)
+            topv, topi = output_tensor[sample_idx][token_idx].data.topk(1)
+
             if topi.item() == EOS_token:
                 decoded_words.append('<EOS>')
                 break
             else:
                 decoded_words.append(output_lang.index2word[topi.item()])
 
-            decoder_input = topi.squeeze().detach()
-
-        return decoded_words
+        print(input_sentences[sample_idx], '->', decoded_words)
 
 def evaluateRandomly(pairs, encoder, decoder, n=10):
     for i in range(n):
