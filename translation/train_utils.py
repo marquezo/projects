@@ -98,8 +98,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     return loss.detach()
 
 
-def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_iters,
-               print_every=1000, plot_every=100, learning_rate=0.01, batch_size=2):
+def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, learning_rate=0.01, batch_size=2):
     start = time.time()
     plot_losses = []
 
@@ -107,40 +106,41 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_iters,
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
     criterion = nn.NLLLoss(ignore_index=PAD_token, reduction='none')
 
-    start_batch_idx = 0
-    end_batch_idx = np.minimum(batch_size, len(train_data))
+    for epoch_idx in range(n_epochs):
 
-    print_loss_total = 0  # Reset every print_every
-    plot_loss_total = 0  # Reset every plot_every
+        print_loss_total = 0
+        plot_loss_total = 0
+        start_batch_idx = 0
+        end_batch_idx = np.minimum(batch_size, len(train_data))
 
-    while start_batch_idx < len(train_data):
+        while start_batch_idx < len(train_data):
 
-        input_tensor, target_tensor = get_minibatch(train_data[start_batch_idx:end_batch_idx], input_lang, output_lang)
+            input_tensor, target_tensor = get_minibatch(train_data[start_batch_idx:end_batch_idx], input_lang, output_lang)
 
-        loss = train(input_tensor, target_tensor, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, criterion, 0.5)
+            loss = train(input_tensor, target_tensor, encoder,
+                         decoder, encoder_optimizer, decoder_optimizer, criterion, 0.5)
 
-        print_loss_total += loss.data
-        plot_loss_total += loss
+            print_loss_total += loss.data
+            plot_loss_total += loss
 
-        print(end_batch_idx, loss)
+            #print(end_batch_idx, loss)
 
-        start_batch_idx = end_batch_idx
-        end_batch_idx = np.minimum(end_batch_idx + batch_size, len(train_data))
+            start_batch_idx = end_batch_idx
+            end_batch_idx = np.minimum(end_batch_idx + batch_size, len(train_data))
 
-        # if end_batch_idx % print_every == 0:
-        #     print_loss_avg = print_loss_total / print_every
-        #     print_loss_total = 0
-        #     print('%s (%d %d%%) %.4f' % (timeSince(start, end_batch_idx / n_iters),
-        #                                  iter, iter / n_iters * 100, print_loss_avg))
-        #
-        # if end_batch_idx % plot_every == 0:
-        #     plot_loss_avg = plot_loss_total / plot_every
-        #     plot_losses.append(plot_loss_avg)
-        #     plot_loss_total = 0
+            # if end_batch_idx % print_every == 0:
+            #     print_loss_avg = print_loss_total / print_every
+            #     print_loss_total = 0
+            #     print('%s (%d %d%%) %.4f' % (timeSince(start, end_batch_idx / n_iters),
+            #                                  iter, iter / n_iters * 100, print_loss_avg))
+            #
+            # if end_batch_idx % plot_every == 0:
+            #     plot_loss_avg = plot_loss_total / plot_every
+            #     plot_losses.append(plot_loss_avg)
+            #     plot_loss_total = 0
 
-    #showPlot(plot_losses)
-    print(print_loss_total)
+        #showPlot(plot_losses)
+        print("Average Loss after epoch {}/{}: {:5f}".format(epoch_idx + 1, n_epochs, print_loss_total/len(train_data)))
 
 
 def evaluate(input_lang, output_lang, encoder, decoder, sentence):
