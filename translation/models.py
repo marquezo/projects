@@ -15,14 +15,22 @@ class EncoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True)
 
     def forward(self, input, hidden):
-        embedded = self.embedding(input).view(input.size(0), input.size(1), -1)
+        """
+        :param input: dimensions batch_size x sequence_length
+        :param hidden: 1 x batch_size x hidden layer dimensions
+        :return:
+        """
+        #print(input.size())
+        embedded = self.embedding(input)
+        #print(embedded.size())
+
         output = embedded
         output, hidden = self.gru(output, hidden)
 
         return output, hidden
 
-    def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+    def initHidden(self, batch_size):
+        return torch.zeros(1, batch_size, self.hidden_size, device=device)
 
 
 class DecoderRNN(nn.Module):
@@ -32,22 +40,30 @@ class DecoderRNN(nn.Module):
         self.dropout_p = dropout_p
 
         self.embedding = nn.Embedding(output_size, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True)
         self.dropout = nn.Dropout(self.dropout_p)
         self.out = nn.Linear(hidden_size, output_size)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.softmax = nn.LogSoftmax(dim=-1)
 
     def forward(self, input, hidden):
-        output = self.embedding(input).view(1, 1, -1)
+        #print(input.size())
+        output = self.embedding(input)
+        #print(output.size())
         output = self.dropout(output)
+
+        #print(output.size())
         output = F.relu(output)
         output, hidden = self.gru(output, hidden)
-        output = self.softmax(self.out(output[0]))
+        #print(output.size())
+        output = self.out(output)
+        #print(output.size())
+        output = self.softmax(output)
+        #print("Final output", output.size())
 
         return output, hidden
 
-    def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+    def initHidden(self, batch_size):
+        return torch.zeros(1, batch_size, self.hidden_size, device=device)
 
 def asMinutes(s):
     m = math.floor(s / 60)
