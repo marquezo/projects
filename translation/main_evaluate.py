@@ -1,6 +1,6 @@
 from util import prepareData
 from models import EncoderRNN, DecoderRNN
-from train_utils import trainIters, evaluate
+from train_utils import trainIters, evaluateRandomly
 import torch
 import numpy as np
 
@@ -34,10 +34,10 @@ def main():
     encoder1 = EncoderRNN(input_lang.n_words, hidden_size).to(device)
     decoder1 = DecoderRNN(output_lang.n_words, hidden_size, dropout_p=0.1).to(device) 
 
-    encoder1 = torch.load('encoder_no_att.model')
-    decoder1 = torch.load('decoder_no_att.model')
+    encoder1 = torch.load('encoder_no_att.model', map_location=device)
+    decoder1 = torch.load('decoder_no_att.model', map_location=device)
 
-    evaluate(valid_set, input_lang, output_lang, encoder1, decoder1, 100)
+    evaluateRandomly(valid_set, input_lang, output_lang, encoder1, decoder1, 10)
 
     #TODO: Use BLEU score
 

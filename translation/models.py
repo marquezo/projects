@@ -48,6 +48,11 @@ class DecoderRNN(nn.Module):
     def forward(self, input, hidden):
         #print(input.size())
         output = self.embedding(input)
+
+        # We are doing inference
+        if output.dim() == 1:
+            output = input.view(1, 1, -1)
+
         #print(output.size())
         output = self.dropout(output)
 

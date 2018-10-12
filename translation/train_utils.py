@@ -143,29 +143,44 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
         print("Average Loss after epoch {}/{}: {:5f}".format(epoch_idx + 1, n_epochs, print_loss_total/len(train_data)))
 
 
-def evaluate(valid_data, input_lang, output_lang, encoder, decoder, batch_size):
+def evaluate(input_lang, output_lang, encoder, decoder, pair):
     with torch.no_grad():
 
-        start_batch_idx = 0
-        end_batch_idx = np.minimum(batch_size, len(valid_data))
+        # start_batch_idx = 0
+        # end_batch_idx = np.minimum(batch_size, len(valid_data))
 
-        while start_batch_idx < len(valid_data):
+        # while start_batch_idx < len(valid_data):
 
-            input_tensor, target_tensor = get_minibatch(valid_data[start_batch_idx:end_batch_idx], input_lang, output_lang)
+        input_tensor, target_tensor = get_minibatch(pair, input_lang, output_lang)
 
-            input_length = input_tensor.size(0)
-            encoder_hidden = encoder.initHidden(input_length)
-            encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
-            encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
-            decoder_hidden = encoder_hidden
+        input_length = input_tensor.size(0)
+        encoder_hidden = encoder.initHidden(input_length)
+        encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
+        encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
 
-            # TODO change this to use beam search
-            decoder_output, decoder_hidden = decoder(target_tensor, decoder_hidden)
+        # TODO change this to use beam search
 
-            print_results(valid_data[start_batch_idx:end_batch_idx], decoder_output, output_lang)
+        decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+        decoder_hidden = encoder_hidden
+        decoded_words = []
 
-            start_batch_idx = end_batch_idx
-            end_batch_idx = np.minimum(end_batch_idx + batch_size, len(valid_data))
+        # An EOS token has to be spit out eventually
+        while True:
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            topv, topi = decoder_output.data.topk(1)
+
+            if topi.item() == EOS_token:
+                decoded_words.append('<EOS>')
+                break
+            else:
+                decoded_words.append(output_lang.index2word[topi.item()])
+
+            decoder_input = topi.squeeze().detach()
+
+        return decoded_words
+
+            # start_batch_idx = end_batch_idx
+            # end_batch_idx = np.minimum(end_batch_idx + batch_size, len(valid_data))
 
             
 def print_results(input_sentences, output_tensor, output_lang):
@@ -186,12 +201,13 @@ def print_results(input_sentences, output_tensor, output_lang):
 
         print(input_sentences[sample_idx], '->', decoded_words)
 
-def evaluateRandomly(pairs, encoder, decoder, n=10):
+
+def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, n=10):
     for i in range(n):
-        pair = random.choice(pairs)
+        pair = random.choice(valid_data)
         print('>', pair[0])
         print('=', pair[1])
-        output_words, attentions = evaluate(encoder, decoder, pair[0])
+        output_words = evaluate(input_lang, output_lang, encoder, decoder, [pair])
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')
