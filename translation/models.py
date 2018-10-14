@@ -46,24 +46,23 @@ class DecoderRNN(nn.Module):
         self.softmax = nn.LogSoftmax(dim=-1)
 
     def forward(self, input, hidden):
-        #print(input.size())
+
+        #print("Input", input)
+
         output = self.embedding(input)
 
         # We are doing inference
         if output.dim() == 1:
-            output = input.view(1, 1, -1)
+            output = output.view(1, 1, -1)
 
-        #print(output.size())
         output = self.dropout(output)
 
-        #print(output.size())
         output = F.relu(output)
         output, hidden = self.gru(output, hidden)
-        #print(output.size())
         output = self.out(output)
-        #print(output.size())
+        #print("linear output", output.size())
         output = self.softmax(output)
-        #print("Final output", output.size())
+        #print("output", output.size(), output)
 
         return output, hidden
 

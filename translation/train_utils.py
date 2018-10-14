@@ -63,31 +63,45 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     decoder_hidden = encoder_hidden
 
-    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
+    use_teacher_forcing = True #if random.random() < teacher_forcing_ratio else False
 
     #TODO how do we handle EOS token if doing entire sequence all at once?
-    #if use_teacher_forcing:
-    # Teacher forcing: Feed the target as the next input
-    decoder_output, decoder_hidden = decoder(target_tensor, decoder_hidden)
+    if use_teacher_forcing:
+        # Teacher forcing: Feed the target as the next input, ignore <EOS> token at the end
+        decoder_output, decoder_hidden = decoder(target_tensor[:, :-1], decoder_hidden)
 
-    # Need to swap the dimensions not corresponding to the minibatch for NLLoss to work
-    loss_batch = criterion(decoder_output.transpose(1, 2), target_tensor)
+        # Need to swap the dimensions not corresponding to the minibatch for NLLoss to work
+        # To calculate loss, ignore <SOS> token
+        loss_batch = criterion(decoder_output.transpose(1, 2), target_tensor[:, 1:])
 
-    #else:
-    #     # Without teacher forcing: use its own predictions as the next input
-    #     for di in range(target_length):
-    #         decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-    #         topv, topi = decoder_output.topk(1) #Get the most probable word
-    #         decoder_input = topi.squeeze().detach()  # detach from history as input
-    #
-    #         loss += criterion(decoder_output, target_tensor[di])
-    #
-    #         if decoder_input.item() == EOS_token:
-    #             break
+        # Remember that we padded the target tensor, so find out the number of outputs
+        # Sum the loss and divide by the number of outputs
+        loss = loss_batch.sum() / torch.nonzero(target_tensor).size(0)
+    else:
+        # Without teacher forcing: use its own predictions as the next input
+        # decoder_hidden: 1 x batch_size x d_hidden
 
-    # Remember that we padded the target tensor, so find out the number of outputs
-    # Sum the loss and divide by the number of outputs
-    loss = loss_batch.sum()/torch.nonzero(target_tensor).size(0)
+        # For each hidden state in the minibatch
+        # The first token in the target is already SOS and we have already put an EOS
+        # For as many tokens in the target until finding EOS, pass the previous output
+
+        for sample_idx in range(decoder_hidden.size(1)):
+            print(decoder_hidden[0][sample_idx].size())
+        #
+        # for di in range(target_length):
+        #     decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+        #     topv, topi = decoder_output.topk(1) #Get the most probable word
+        #     decoder_input = topi.squeeze().detach()  # detach from history as input
+        #
+        #     loss += criterion(decoder_output, target_tensor[di])
+        #
+        #     if decoder_input.item() == EOS_token:
+        #         break
+
+        import sys
+        sys.exit(1)
+
+
 
     loss.backward()
 
@@ -167,13 +181,17 @@ def evaluate(input_lang, output_lang, encoder, decoder, pair):
         # An EOS token has to be spit out eventually
         while True:
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            print(decoder_output.data)
             topv, topi = decoder_output.data.topk(1)
 
             if topi.item() == EOS_token:
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(output_lang.index2word[topi.item()])
+                print(topv, topi)
+                top_item = output_lang.index2word[topi.item()]
+                print(top_item)
+                decoded_words.append(top_item)
 
             decoder_input = topi.squeeze().detach()
 
