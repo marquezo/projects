@@ -181,16 +181,15 @@ def evaluate(input_lang, output_lang, encoder, decoder, pair):
         # An EOS token has to be spit out eventually
         while True:
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-            print(decoder_output.data)
             topv, topi = decoder_output.data.topk(1)
 
             if topi.item() == EOS_token:
                 decoded_words.append('<EOS>')
                 break
             else:
-                print(topv, topi)
+                #print(topv, topi)
                 top_item = output_lang.index2word[topi.item()]
-                print(top_item)
+                #print(top_item)
                 decoded_words.append(top_item)
 
             decoder_input = topi.squeeze().detach()

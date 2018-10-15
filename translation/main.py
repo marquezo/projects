@@ -34,7 +34,7 @@ def main():
     encoder1 = EncoderRNN(input_lang.n_words, hidden_size).to(device)
     decoder1 = DecoderRNN(output_lang.n_words, hidden_size, dropout_p=0.1).to(device) 
 
-    trainIters(train_set, input_lang, output_lang, encoder1, decoder1, 10, batch_size=128)
+    trainIters(train_set, input_lang, output_lang, encoder1, decoder1, 50, batch_size=128)
 
     torch.save(encoder1, 'encoder_no_att.model')
     torch.save(decoder1, 'decoder_no_att.model')
