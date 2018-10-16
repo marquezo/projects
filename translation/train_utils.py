@@ -77,17 +77,17 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
         # Remember that we padded the target tensor, so find out the number of outputs
         # Sum the loss and divide by the number of outputs
-        loss = loss_batch.sum() / torch.nonzero(target_tensor).size(0)
+        loss = loss_batch.sum() / torch.nonzero(target_tensor[:, 1:]).size(0)
 
         #print("teacher_forcing loss", loss.data)
     else:
         # Without teacher forcing: use its own predictions as the next input
         # encoder_hidden: 1 x batch_size x d_hidden
-
         # For each hidden state in the minibatch
         # For as many tokens in the target until finding EOS, pass the previous output
-
         # In this case, we don't set decoder_hidden = encoder_hidden because we use decoder_hidden below
+        num_values = 0
+
         for sample_idx in range(encoder_hidden.size(1)):
             #print(decoder_hidden[0][sample_idx].size())
             decoder_hidden = encoder_hidden[0][sample_idx].view(1, 1, -1)
@@ -101,17 +101,15 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
                 topv, topi = decoder_output.topk(1) #Get the most probable word
                 decoder_input = topi.squeeze().detach()  # detach from history as input
 
-                #print(decoder_output.size())
-                #print(sample_target_tensor.size())
                 decoder_output = decoder_output.squeeze(0)
-                #print(decoder_output.size())
 
                 loss += criterion(decoder_output, sample_target_tensor[di].view(1))
+                num_values += 1
 
                 if decoder_input.item() == EOS_token:
                     break
 
-            #print("non teacher_forcing loss", loss.data)
+        loss = loss/num_values # divide by mini-batch size
 
     loss.backward()
 
@@ -144,10 +142,8 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
             loss = train(input_tensor, target_tensor, encoder,
                          decoder, encoder_optimizer, decoder_optimizer, criterion, 0.5)
 
-            print_loss_total += loss.data
-            plot_loss_total += loss
-
-            #print(end_batch_idx, loss)
+            print_loss_total += loss.item()
+            plot_loss_total += loss.item()
 
             start_batch_idx = end_batch_idx
             end_batch_idx = np.minimum(end_batch_idx + batch_size, len(train_data))
