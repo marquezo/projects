@@ -37,7 +37,7 @@ def main():
     encoder1 = torch.load('encoder_no_att.model', map_location=device)
     decoder1 = torch.load('decoder_no_att.model', map_location=device)
 
-    evaluateRandomly(valid_set, input_lang, output_lang, encoder1, decoder1, 5)
+    evaluateRandomly(valid_set, input_lang, output_lang, encoder1, decoder1, 1)
 
     #TODO: Use BLEU score
 

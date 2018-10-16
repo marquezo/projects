@@ -47,8 +47,6 @@ class DecoderRNN(nn.Module):
 
     def forward(self, input, hidden):
 
-        #print("Input", input)
-
         output = self.embedding(input)
 
         # We are doing inference
@@ -60,9 +58,7 @@ class DecoderRNN(nn.Module):
         output = F.relu(output)
         output, hidden = self.gru(output, hidden)
         output = self.out(output)
-        #print("linear output", output.size())
         output = self.softmax(output)
-        #print("output", output.size(), output)
 
         return output, hidden
 

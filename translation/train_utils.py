@@ -54,16 +54,17 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     decoder_optimizer.zero_grad()
 
     input_length = input_tensor.size(0)
+    target_length = target_tensor.size(1)
 
     encoder_hidden = encoder.initHidden(input_length)
-
-    encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
 
     encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
 
     decoder_hidden = encoder_hidden
 
-    use_teacher_forcing = True #if random.random() < teacher_forcing_ratio else False
+    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
+
+    loss = 0
 
     #TODO how do we handle EOS token if doing entire sequence all at once?
     if use_teacher_forcing:
@@ -77,31 +78,40 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         # Remember that we padded the target tensor, so find out the number of outputs
         # Sum the loss and divide by the number of outputs
         loss = loss_batch.sum() / torch.nonzero(target_tensor).size(0)
+
+        #print("teacher_forcing loss", loss.data)
     else:
         # Without teacher forcing: use its own predictions as the next input
-        # decoder_hidden: 1 x batch_size x d_hidden
+        # encoder_hidden: 1 x batch_size x d_hidden
 
         # For each hidden state in the minibatch
-        # The first token in the target is already SOS and we have already put an EOS
         # For as many tokens in the target until finding EOS, pass the previous output
 
-        for sample_idx in range(decoder_hidden.size(1)):
-            print(decoder_hidden[0][sample_idx].size())
-        #
-        # for di in range(target_length):
-        #     decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-        #     topv, topi = decoder_output.topk(1) #Get the most probable word
-        #     decoder_input = topi.squeeze().detach()  # detach from history as input
-        #
-        #     loss += criterion(decoder_output, target_tensor[di])
-        #
-        #     if decoder_input.item() == EOS_token:
-        #         break
+        # In this case, we don't set decoder_hidden = encoder_hidden because we use decoder_hidden below
+        for sample_idx in range(encoder_hidden.size(1)):
+            #print(decoder_hidden[0][sample_idx].size())
+            decoder_hidden = encoder_hidden[0][sample_idx].view(1, 1, -1)
+            decoder_input = torch.tensor([[SOS_token]], device=device)
 
-        import sys
-        sys.exit(1)
+            sample_target_tensor = target_tensor[sample_idx, 1:]
+            #print(sample_target_tensor.size())
 
+            for di in range(sample_target_tensor.size(0)):
+                decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+                topv, topi = decoder_output.topk(1) #Get the most probable word
+                decoder_input = topi.squeeze().detach()  # detach from history as input
 
+                #print(decoder_output.size())
+                #print(sample_target_tensor.size())
+                decoder_output = decoder_output.squeeze(0)
+                #print(decoder_output.size())
+
+                loss += criterion(decoder_output, sample_target_tensor[di].view(1))
+
+                if decoder_input.item() == EOS_token:
+                    break
+
+            #print("non teacher_forcing loss", loss.data)
 
     loss.backward()
 
@@ -160,44 +170,60 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
 def evaluate(input_lang, output_lang, encoder, decoder, pair):
     with torch.no_grad():
 
-        # start_batch_idx = 0
-        # end_batch_idx = np.minimum(batch_size, len(valid_data))
-
-        # while start_batch_idx < len(valid_data):
-
         input_tensor, target_tensor = get_minibatch(pair, input_lang, output_lang)
 
         input_length = input_tensor.size(0)
         encoder_hidden = encoder.initHidden(input_length)
-        encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
         encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
-
-        # TODO change this to use beam search
-
         decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
         decoder_hidden = encoder_hidden
-        decoded_words = []
+        beam_width = 3
+
+        # First step of decoding
+        decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+
+        top_values, top_indices = decoder_output.data.topk(beam_width)
+        probs = top_values.squeeze()
+        top_indices = top_indices.squeeze()
+        to_evaluate = [(decoder, decoder_hidden, probs[i], top_indices[i]) for i in range(beam_width)]
+
+        # For candidates
+        candidates = [[] for _ in range(beam_width)]
 
         # An EOS token has to be spit out eventually
-        while True:
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-            topv, topi = decoder_output.data.topk(1)
+        while len(top_indices) > 0:
+            # Mean to store an array of tensors of length 'beam_width'
+            new_probs = []
 
-            if topi.item() == EOS_token:
-                decoded_words.append('<EOS>')
-                break
-            else:
-                #print(topv, topi)
-                top_item = output_lang.index2word[topi.item()]
-                #print(top_item)
-                decoded_words.append(top_item)
+            for idx, (decoder_, decoder_hidden_, prob_, top_idx_) in enumerate(to_evaluate):
+                decoder_output, temp_decoder_hidden = decoder_(top_idx_, decoder_hidden_)
+                new_probs.append(prob_ + decoder_output.squeeze()) # Compute new probabilities
+                to_evaluate[idx] = (decoder_, temp_decoder_hidden, prob_, top_idx_)
 
-            decoder_input = topi.squeeze().detach()
+            #print(new_probs)
+            which_tensor, values, indices = get_largest(new_probs, beam_width)
 
-        return decoded_words
+            # Need to populate decoders and decoders_hidden, as well as probs, and keep track of candidates
+            print(which_tensor, values, indices)
 
-            # start_batch_idx = end_batch_idx
-            # end_batch_idx = np.minimum(end_batch_idx + batch_size, len(valid_data))
+            # Reset the candidates so far
+            for idx, which_one in enumerate(which_tensor):
+                # Make sure the past is that of the candidate
+                candidates[idx] = candidates[which_one].copy()
+
+            to_evaluate_copy = to_evaluate.copy()
+            to_evaluate = []
+
+            for idx_, (which_, value_, top_idx_) in enumerate(zip(which_tensor, values, indices)):
+                candidates[idx_].append(top_indices[which_].item())
+                to_evaluate.append((to_evaluate_copy[which_][0], to_evaluate_copy[which_][1], value_, top_idx_))
+
+            for i in range(len(candidates)):
+                print([output_lang.index2word[idx] for idx in candidates[i]])
+
+            top_indices = indices
+
+        return candidates
 
             
 def print_results(input_sentences, output_tensor, output_lang):
@@ -228,3 +254,103 @@ def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, n=10
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')
+
+
+def get_largest(tensors, num_largest):
+    """
+    Given an array of 1D tensors of equal size, return three arrays:
+    1. Which tensors return the largest values
+    2. Indices of largest values inside the respective tenssors
+    3. Largest values
+    :param tensors:
+    :return:
+    """
+    # Get size of tensors, assume they are all of equal length
+    tensor_len = tensors[0].size(0)
+    # Concatenate tensors
+    concatenated = torch.cat(tensors)
+    # Call topk on tensors. This gives us 2/3 of the answer
+    top_values, top_idx = concatenated.topk(num_largest)
+
+    # Using the size of tensors, return which tensors had the largest values
+    which = top_idx/tensor_len
+
+    return which, top_values, top_idx % tensor_len
+
+
+# def evaluate(input_lang, output_lang, encoder, decoder, pair):
+#     with torch.no_grad():
+#
+#         # start_batch_idx = 0
+#         # end_batch_idx = np.minimum(batch_size, len(valid_data))
+#
+#         # while start_batch_idx < len(valid_data):
+#
+#         input_tensor, target_tensor = get_minibatch(pair, input_lang, output_lang)
+#
+#         input_length = input_tensor.size(0)
+#         encoder_hidden = encoder.initHidden(input_length)
+#         encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
+#         encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
+#
+#         # TODO change this to use beam search
+#
+#         decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+#         decoder_hidden = encoder_hidden
+#         decoded_words = []
+#         beam_width = 4
+#
+#         # First step of decoding
+#         decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+#
+#         top_values, top_indices = decoder_output.data.topk(beam_width)
+#         probs = top_values.squeeze()
+#         top_indices = top_indices.squeeze()
+#         decoders = [decoder for _ in range(beam_width)]
+#         decoders_hidden = [decoder_hidden for _ in range(beam_width)]
+#
+#         # For candidates
+#         candidates = [[] for _ in range(beam_width)]
+#         candidates_probs = []
+#
+#         # An EOS token has to be spit out eventually
+#         while len(top_indices) > 0:
+#             # Mean to store an array of tensors of length 'beam_width'
+#             new_probs = []
+#
+#             for idx, token_idx in enumerate(top_indices):
+#                 decoder_output, decoders_hidden[idx] = decoders[idx](token_idx, decoders_hidden[idx])
+#                 new_probs.append(probs[idx] + decoder_output.squeeze()) # Compute new probabilities
+#
+#             #print(new_probs)
+#             which_tensor, values, indices = get_largest(new_probs, beam_width)
+#
+#             # Need to populate decoders and decoders_hidden, as well as probs, and keep track of candidates
+#             print(which_tensor, values, indices)
+#
+#             # Reset the candidates so far
+#             for idx, which_one in enumerate(which_tensor):
+#                 # Make sure the past is that of the candidate
+#                 candidates[idx] = candidates[which_one].copy()
+#
+#             temp_decoders = decoders.copy()
+#             temp_decoders_hidden = decoders_hidden.copy()
+#
+#             for idx, which_one in enumerate(which_tensor):
+#                 # Store the token that led to this high probability
+#                 candidates[idx].append(top_indices[which_one].item())
+#
+#                 if indices[idx] != EOS_token: # we keep going
+#                     decoders[idx] = temp_decoders[which_one]
+#                     decoders_hidden[idx] = temp_decoders_hidden[which_one]
+#                     probs[idx] = values[idx]
+#                 else:
+#                     import sys
+#                     sys.exit(1)
+#
+#             for i in range(len(candidates)):
+#                 print([output_lang.index2word[idx] for idx in candidates[i]])
+#
+#             top_indices = indices
+#
+#         return candidates
