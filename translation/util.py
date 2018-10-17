@@ -5,6 +5,17 @@ plt.switch_backend('agg')
 import matplotlib.ticker as ticker
 import time, math, unidecode, re
 
+eng_prefixes = (
+    "i am ", "i m ",
+    "he is", "he s ",
+    "she is", "she s",
+    "you are", "you re ",
+    "we are", "we re ",
+    "they are", "they re "
+)
+
+MAX_LENGTH = 10
+
 def asMinutes(s):
     m = math.floor(s / 60)
     s -= m * 60
@@ -75,8 +86,18 @@ def prepareData(lang1, lang2, reverse=False):
 
     return input_lang, output_lang, pairs
 
+
 def indexesFromSentence(lang, sentence):
     return [lang.word2index[word] for word in sentence.split(' ')]
+
+
+def filterPair(p):
+    return len(p[0].split(' ')) < MAX_LENGTH and \
+        len(p[1].split(' ')) < MAX_LENGTH and \
+        p[0].startswith(eng_prefixes)
+
+def filterPairs(pairs):
+    return [pair for pair in pairs if filterPair(pair)]
 
 
 

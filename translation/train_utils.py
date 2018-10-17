@@ -1,11 +1,12 @@
 import torch
 import random, time
-from util import indexesFromSentence, timeSince, showPlot
+from util import indexesFromSentence, timeSince, showPlot, filterPairs, normalizeString
 from torch import optim
 from lang import SOS_token, EOS_token, PAD_token
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 import numpy as np
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -131,13 +132,17 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     return loss.detach()
 
 
-def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio,
+def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, simplify=False,
                reverse_input = False, learning_rate=0.01, batch_size=2):
     # start = time.time()
     # plot_losses = []
 
     print("Training for {} epochs with batch size {} and teacher forcing ratio {}".
           format(n_epochs, batch_size, teacher_forcing_ratio))
+
+    if simplify:
+        train_data = filterPairs(train_data)
+        print("Simplifying training dataset to have {} examples".format(len(train_data)))
 
     encoder.train()
     decoder.train()
@@ -307,7 +312,11 @@ def print_results(input_sentences, output_tensor, output_lang):
         print(input_sentences[sample_idx], '->', decoded_words)
 
 
-def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, n=10):
+def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, simplify=False, n=10):
+
+    if simplify:
+        valid_data = filterPairs(valid_data)
+
     for i in range(n):
         pair = random.choice(valid_data)
         print('>', pair[0])
@@ -361,13 +370,78 @@ def load_checkpoint(filename, encoder, decoder, enc_optim, dec_optim):
     loss = checkpoint['loss']
     encoder.load_state_dict(checkpoint['encoder'])
     decoder.load_state_dict(checkpoint['decoder'])
-    enc_optim.load_state_dict(checkpoint['enc_optim'])
-    dec_optim.load_state_dict(checkpoint['dec_optim'])
+
+    if enc_optim is not None:
+        enc_optim.load_state_dict(checkpoint['enc_optim'])
+
+    if dec_optim is not None:
+        dec_optim.load_state_dict(checkpoint['dec_optim'])
 
     print("Loaded checkpoint - epoch {} having loss {}".format(epoch, loss))
 
     return encoder, decoder, enc_optim, dec_optim, epoch, loss
 
+
+def get_datasets(lang1, lang2):
+    """
+    Return two datasets as lists, one for training and one for development
+    :param lang1: source language
+    :param lang2: target language
+    :return:
+    """
+    train_file = "data/%s-%s.train" % (lang1, lang2)
+    dev_file = "data/%s-%s.dev" % (lang1, lang2)
+
+    if os.path.isfile(train_file) and os.path.isfile(dev_file):
+
+        print("Loading existing datasets found in {} and {}".format(train_file, dev_file))
+
+        # Read the file and split into lines
+        train_lines = open(train_file, encoding='utf-8').read().strip().split('\n')
+        dev_lines = open(dev_file, encoding='utf-8').read().strip().split('\n')
+
+        # Split every line into pairs and normalize
+        train_pairs = [[normalizeString(s) for s in l.split('\t')] for l in train_lines]
+        dev_pairs = [[normalizeString(s) for s in l.split('\t')] for l in dev_lines]
+
+        return train_pairs, dev_pairs
+    else:
+        raise Exception("Files not found")
+
+
+def split_save_datasets(pairs, lang1, lang2, split_percentage=0.1):
+    valid_size = int(len(pairs) * split_percentage)
+    valid_set_indices = np.random.choice(len(pairs), valid_size, replace=False)
+    print("Size of train/dev set to create is {}/{}".format(len(pairs) - len(valid_set_indices), len(valid_set_indices)))
+    valid_set_indices.sort()  # sort so that we pad efficiently
+
+    dev_pairs= []
+    train_pairs = []
+
+    for idx in range(len(pairs)):
+        if idx in valid_set_indices:
+            dev_pairs.append(pairs[idx])
+        else:
+            train_pairs.append(pairs[idx])
+
+    del pairs
+
+    print("Size of created train/dev set is {}/{}".format(len(train_pairs), len(dev_pairs)))
+
+    train_file = "data/%s-%s.train" % (lang1, lang2)
+    dev_file = "data/%s-%s.dev" % (lang1, lang2)
+
+    with open(train_file, 'w') as f:
+        for pair in train_pairs:
+            f.write("{}\t{}\n".format(pair[0], pair[1]))
+
+    with open(dev_file, 'w') as f:
+        for pair in dev_pairs:
+            f.write("{}\t{}\n".format(pair[0], pair[1]))
+
+    print("Wrote datasets to {} and {}".format(train_file, dev_file))
+
+    return train_pairs, dev_pairs
 
 # def evaluate(input_lang, output_lang, encoder, decoder, pair):
 #     with torch.no_grad():

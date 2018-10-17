@@ -1,43 +1,28 @@
 from util import prepareData
 from models import EncoderRNN, DecoderRNN
-from train_utils import trainIters, evaluateRandomly
+from train_utils import load_checkpoint, evaluateRandomly, get_datasets
 import torch
-import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():
 
+    from_lang, to_lang = 'eng', 'fra'
+
     print("Using device {}".format(device))
-    input_lang, output_lang, pairs = prepareData('eng', 'fra', False)
+    # To prepare the vocabularies, use all data
+    input_lang, output_lang, pairs = prepareData(from_lang, to_lang, False)
 
-    # 10% for validation set
-    valid_size = int(len(pairs) * 0.1)
-    valid_set_indices = np.random.choice(len(pairs), valid_size, replace=False)
-    print("Size of training/validation set is {}/{}".format(len(pairs) - len(valid_set_indices), len(valid_set_indices)))
-    valid_set_indices.sort() # sort so that we pad efficiently
-    
-    valid_set = []
-    train_set = []
-
-    for idx in range(len(pairs)):
-        if idx in valid_set_indices:
-            valid_set.append(pairs[idx])
-        else:
-            train_set.append(pairs[idx])
-
-    del pairs
-
-    print("Size of training/validation set is {}/{}".format(len(train_set), len(valid_set)))
+    # Get datasets
+    _, dev_set = get_datasets(from_lang, to_lang)
 
     hidden_size = 256
     encoder1 = EncoderRNN(input_lang.n_words, hidden_size).to(device)
-    decoder1 = DecoderRNN(output_lang.n_words, hidden_size, dropout_p=0.1).to(device) 
+    decoder1 = DecoderRNN(output_lang.n_words, hidden_size, dropout_p=0.1).to(device)
 
-    encoder1 = torch.load('encoder_no_att.model', map_location=device)
-    decoder1 = torch.load('decoder_no_att.model', map_location=device)
+    encoder1, decoder1, _, _, _, _ = load_checkpoint("checkpoint.tar", encoder1, decoder1, None, None)
 
-    evaluateRandomly(valid_set, input_lang, output_lang, encoder1, decoder1, 1)
+    evaluateRandomly(dev_set, input_lang, output_lang, encoder1, decoder1, True, 1)
 
     #TODO: Use BLEU score
 
