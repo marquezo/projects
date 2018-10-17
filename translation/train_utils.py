@@ -28,7 +28,7 @@ def tensorsFromPair(pair, input_lang, output_lang):
     return input_tensor, target_tensor
 
 
-def get_minibatch(pairs, input_lang, output_lang):
+def get_minibatch(pairs, input_lang, output_lang, reverse_input=False):
     """
     :param pairs: list of lists, the inner lists have two elements, the first one contains the input sentence and the
                 second one contains the output sentences
@@ -40,6 +40,10 @@ def get_minibatch(pairs, input_lang, output_lang):
     # Go through each pair and keep track of largest sentence to adjust the padding at the end
     for pair in pairs:
         input_tensor = tensorFromSentence(input_lang, pair[0])
+
+        if reverse_input:
+            input_tensor = input_tensor.flip(0)
+
         output_tensor = tensorFromSentence(output_lang, pair[1], True)
         list_input_sentences.append(input_tensor)
         list_output_sentences.append(output_tensor)
@@ -49,6 +53,18 @@ def get_minibatch(pairs, input_lang, output_lang):
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer,
           criterion, teacher_forcing_ratio):
+    """
+
+    :param input_tensor:
+    :param target_tensor:
+    :param encoder:
+    :param decoder:
+    :param encoder_optimizer:
+    :param decoder_optimizer:
+    :param criterion:
+    :param teacher_forcing_ratio: For only teacher forcing, pass 1.0
+    :return:
+    """
 
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
@@ -66,7 +82,6 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     loss = 0
 
-    #TODO how do we handle EOS token if doing entire sequence all at once?
     if use_teacher_forcing:
         # Teacher forcing: Feed the target as the next input, ignore <EOS> token at the end
         decoder_output, decoder_hidden = decoder(target_tensor[:, :-1], decoder_hidden)
@@ -78,8 +93,6 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         # Remember that we padded the target tensor, so find out the number of outputs
         # Sum the loss and divide by the number of outputs
         loss = loss_batch.sum() / torch.nonzero(target_tensor[:, 1:]).size(0)
-
-        #print("teacher_forcing loss", loss.data)
     else:
         # Without teacher forcing: use its own predictions as the next input
         # encoder_hidden: 1 x batch_size x d_hidden
@@ -89,12 +102,10 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         num_values = 0
 
         for sample_idx in range(encoder_hidden.size(1)):
-            #print(decoder_hidden[0][sample_idx].size())
             decoder_hidden = encoder_hidden[0][sample_idx].view(1, 1, -1)
             decoder_input = torch.tensor([[SOS_token]], device=device)
 
             sample_target_tensor = target_tensor[sample_idx, 1:]
-            #print(sample_target_tensor.size())
 
             for di in range(sample_target_tensor.size(0)):
                 decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
@@ -120,9 +131,16 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     return loss.detach()
 
 
-def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, learning_rate=0.01, batch_size=2):
-    start = time.time()
-    plot_losses = []
+def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio,
+               reverse_input = False, learning_rate=0.01, batch_size=2):
+    # start = time.time()
+    # plot_losses = []
+
+    print("Training for {} epochs with batch size {} and teacher forcing ratio {}".
+          format(n_epochs, batch_size, teacher_forcing_ratio))
+
+    encoder.train()
+    decoder.train()
 
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
@@ -138,10 +156,11 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
 
         while start_batch_idx < len(train_data):
 
-            input_tensor, target_tensor = get_minibatch(train_data[start_batch_idx:end_batch_idx], input_lang, output_lang)
+            input_tensor, target_tensor = get_minibatch(train_data[start_batch_idx:end_batch_idx],
+                                                        input_lang, output_lang, reverse_input)
 
             loss = train(input_tensor, target_tensor, encoder,
-                         decoder, encoder_optimizer, decoder_optimizer, criterion, 0.5)
+                         decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio)
 
             print_loss_total += loss.item()
             plot_loss_total += loss.item()
@@ -167,6 +186,10 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
 
 
 def evaluate(input_lang, output_lang, encoder, decoder, pair):
+
+    encoder.eval()
+    decoder.eval()
+
     with torch.no_grad():
 
         input_tensor, _ = get_minibatch(pair, input_lang, output_lang)
