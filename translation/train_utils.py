@@ -130,10 +130,11 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
 
     for epoch_idx in range(n_epochs):
 
-        print_loss_total = 0
-        plot_loss_total = 0
+        print_loss_total = 0.
+        plot_loss_total = 0.
         start_batch_idx = 0
         end_batch_idx = np.minimum(batch_size, len(train_data))
+        num_minibatches = 0.
 
         while start_batch_idx < len(train_data):
 
@@ -147,6 +148,7 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
 
             start_batch_idx = end_batch_idx
             end_batch_idx = np.minimum(end_batch_idx + batch_size, len(train_data))
+            num_minibatches += 1
 
             # if end_batch_idx % print_every == 0:
             #     print_loss_avg = print_loss_total / print_every
@@ -160,66 +162,107 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
             #     plot_loss_total = 0
 
         #showPlot(plot_losses)
-        print("Average Loss after epoch {}/{}: {:5f}".format(epoch_idx + 1, n_epochs, print_loss_total/len(train_data)))
+        print("Average Loss after epoch {}/{}: {:5f}".format(epoch_idx + 1, n_epochs, print_loss_total/num_minibatches))
+        save_checkpoint(epoch_idx + 1, encoder, decoder, encoder_optimizer, decoder_optimizer, print_loss_total/num_minibatches)
 
 
 def evaluate(input_lang, output_lang, encoder, decoder, pair):
     with torch.no_grad():
 
-        input_tensor, target_tensor = get_minibatch(pair, input_lang, output_lang)
+        input_tensor, _ = get_minibatch(pair, input_lang, output_lang)
 
         input_length = input_tensor.size(0)
         encoder_hidden = encoder.initHidden(input_length)
-        encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
-        decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
-        decoder_hidden = encoder_hidden
-        beam_width = 3
+        _, encoder_hidden = encoder(input_tensor, encoder_hidden)
 
-        # First step of decoding
+        #greedy_search(decoder, encoder_hidden, output_lang)
+
+        results = beam_search(decoder, encoder_hidden)
+
+        for i in range(len(results)):
+            print([output_lang.index2word[idx] for idx in results[i][0]], results[i][1].item())
+
+        return []
+
+
+def greedy_search(decoder, encoder_hidden, output_lang):
+    decoded_words = []
+    decoder_hidden = encoder_hidden
+    decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+
+    # An EOS token has to be spit out eventually
+    while True:
         decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+        topv, topi = decoder_output.data.topk(1)
 
-        top_values, top_indices = decoder_output.data.topk(beam_width)
-        probs = top_values.squeeze()
-        top_indices = top_indices.squeeze()
-        to_evaluate = [(decoder, decoder_hidden, probs[i], top_indices[i]) for i in range(beam_width)]
+        if topi.item() == EOS_token:
+            decoded_words.append('<EOS>')
+            break
+        else:
+            top_item = output_lang.index2word[topi.item()]
+            decoded_words.append(top_item)
 
-        # For candidates
-        candidates = [[] for _ in range(beam_width)]
+        decoder_input = topi.squeeze().detach()
 
-        # An EOS token has to be spit out eventually
-        while len(top_indices) > 0:
-            # Mean to store an array of tensors of length 'beam_width'
-            new_probs = []
+    print([word for word in decoded_words])
 
-            for idx, (decoder_, decoder_hidden_, prob_, top_idx_) in enumerate(to_evaluate):
-                decoder_output, temp_decoder_hidden = decoder_(top_idx_, decoder_hidden_)
-                new_probs.append(prob_ + decoder_output.squeeze()) # Compute new probabilities
-                to_evaluate[idx] = (decoder_, temp_decoder_hidden, prob_, top_idx_)
 
-            #print(new_probs)
-            which_tensor, values, indices = get_largest(new_probs, beam_width)
+def beam_search(decoder, encoder_hidden, beam_width=3):
+    decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
 
-            # Need to populate decoders and decoders_hidden, as well as probs, and keep track of candidates
-            print(which_tensor, values, indices)
+    # First step of decoding
+    decoder_output, decoder_hidden = decoder(decoder_input, encoder_hidden)
 
-            # Reset the candidates so far
-            for idx, which_one in enumerate(which_tensor):
-                # Make sure the past is that of the candidate
-                candidates[idx] = candidates[which_one].copy()
+    top_values, top_indices = decoder_output.data.topk(beam_width)
+    probs = top_values.squeeze()
+    top_indices = top_indices.squeeze()
+    to_evaluate = [(decoder, decoder_hidden, probs[i], top_indices[i]) for i in range(beam_width)]
 
-            to_evaluate_copy = to_evaluate.copy()
-            to_evaluate = []
+    candidates = [[] for _ in range(beam_width)]
+    results = []
 
-            for idx_, (which_, value_, top_idx_) in enumerate(zip(which_tensor, values, indices)):
-                candidates[idx_].append(top_indices[which_].item())
-                to_evaluate.append((to_evaluate_copy[which_][0], to_evaluate_copy[which_][1], value_, top_idx_))
+    # Go until all candidates have not seen the EOS
+    while len(to_evaluate) > 0:
+        # Mean to store an array of tensors of length 'beam_width'
+        new_probs = []
 
-            for i in range(len(candidates)):
-                print([output_lang.index2word[idx] for idx in candidates[i]])
+        for idx, (decoder_, decoder_hidden_, prob_, top_idx_) in enumerate(to_evaluate):
+            decoder_output, temp_decoder_hidden = decoder_(top_idx_, decoder_hidden_)
+            to_evaluate[idx] = (decoder_, temp_decoder_hidden, prob_, top_idx_)
+            new_probs.append(prob_ + decoder_output.squeeze())  # Compute new probabilities
 
-            top_indices = indices
+        which_tensor, probs, indices = get_largest(new_probs, beam_width - len(results)) # beam is reduced as results come in
 
-        return candidates
+        # Refresh the candidates according to the highest probabilities
+        # which_tensor tells us the models that gave us the highest probabilities
+        old_candidates = candidates.copy()
+
+        for idx, which_one in enumerate(which_tensor):
+            candidates[idx] = old_candidates[which_one].copy()
+
+        to_evaluate_copy = to_evaluate.copy()
+        to_evaluate = []
+
+        for idx_, (which_, value_, top_idx_) in enumerate(zip(which_tensor, probs, indices)):
+            candidates[idx_].append(top_indices[which_].item())
+            to_evaluate.append((to_evaluate_copy[which_][0], to_evaluate_copy[which_][1], value_, top_idx_))
+
+        new_candidates = []
+        to_evaluate_copy = []
+
+        # If we encounter an EOS, this candidate is a possible result
+        for idx_, to_evaluate_tuple in enumerate(to_evaluate):
+            if to_evaluate_tuple[3] == EOS_token:
+                results.append((candidates[idx_], to_evaluate_tuple[2]))  # Add sequence and likelihood
+            else:
+                new_candidates.append(candidates[idx_])
+                to_evaluate_copy.append(to_evaluate_tuple)
+
+        candidates = new_candidates
+        to_evaluate = to_evaluate_copy
+        top_indices = indices
+
+    return results
 
             
 def print_results(input_sentences, output_tensor, output_lang):
@@ -272,6 +315,35 @@ def get_largest(tensors, num_largest):
     which = top_idx/tensor_len
 
     return which, top_values, top_idx % tensor_len
+
+
+def save_checkpoint(epoch, encoder, decoder, enc_optim, dec_optim, loss, filename="checkpoint.tar"):
+    state = {
+        'epoch': epoch,
+        'encoder': encoder.state_dict(),
+        'decoder': decoder.state_dict(),
+        'enc_optim': enc_optim.state_dict(),
+        'dec_optim': dec_optim.state_dict(),
+        'loss': loss
+    }
+
+    torch.save(state, filename)
+
+
+def load_checkpoint(filename, encoder, decoder, enc_optim, dec_optim):
+    print("Loading checkpoint saved in {}".format(filename))
+
+    checkpoint = torch.load(filename)
+    epoch = checkpoint['epoch']
+    loss = checkpoint['loss']
+    encoder.load_state_dict(checkpoint['encoder'])
+    decoder.load_state_dict(checkpoint['decoder'])
+    enc_optim.load_state_dict(checkpoint['enc_optim'])
+    dec_optim.load_state_dict(checkpoint['dec_optim'])
+
+    print("Loaded checkpoint - epoch {} having loss {}".format(epoch, loss))
+
+    return encoder, decoder, enc_optim, dec_optim, epoch, loss
 
 
 # def evaluate(input_lang, output_lang, encoder, decoder, pair):
