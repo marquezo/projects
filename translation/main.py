@@ -1,6 +1,7 @@
 from util import prepareData, normalizeString
+from torch import optim
 from models import EncoderRNN, DecoderRNN
-from train_utils import trainIters, get_datasets
+from train_utils import trainIters, get_datasets, load_checkpoint
 import torch, argparse, sys
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,13 +48,20 @@ if __name__ == "__main__":
         print("Train dataset file not found. You might have to run split_datasets.py")
         sys.exit(-1)
 
-    # TODO load checkpoint
-
     hidden_size = args.hidden_size
     encoder = EncoderRNN(input_lang.n_words, args.hidden_size, args.num_layers).to(device)
     decoder = DecoderRNN(output_lang.n_words, args.hidden_size, args.num_layers, dropout_p=args.dropout).to(device)
+    enc_optimizer = optim.Adam(encoder.parameters(), lr=args.lr)
+    dec_optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
 
-    trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               False, reverse_input=True, batch_size=args.batch_size)
+    if args.checkpoint != 'None':
+        print("Found checkpoint at {}".format(args.checkpoint))
+        encoder, decoder, enc_optimizer, dec_optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, enc_optimizer, dec_optimizer)
+        trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
+               enc_optimizer, dec_optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
+    else:
+        print("Training from scratch {}")
+        trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
+               enc_optimizer, dec_optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
 
     # TODO: Use BLEU score

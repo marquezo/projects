@@ -131,13 +131,13 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     return loss.detach()
 
 
-def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, simplify=False,
+def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, encoder_optimizer, decoder_optimizer, simplify=False,
                reverse_input = False, learning_rate=0.01, batch_size=2):
     # start = time.time()
     # plot_losses = []
 
-    print("Training for {} epochs with batch size {} and teacher forcing ratio {}".
-          format(n_epochs, batch_size, teacher_forcing_ratio))
+    print("Training for {} epochs with batch size {}, learning rate {} and teacher forcing ratio {}".
+          format(n_epochs, batch_size, learning_rate, teacher_forcing_ratio))
 
     if simplify:
         train_data = filterPairs(train_data)
@@ -146,8 +146,6 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
     encoder.train()
     decoder.train()
 
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
     criterion = nn.NLLLoss(ignore_index=PAD_token, reduction='none')
 
     for epoch_idx in range(n_epochs):
