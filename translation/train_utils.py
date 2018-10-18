@@ -1,12 +1,11 @@
 import torch
-import random, time
-from util import indexesFromSentence, timeSince, showPlot, filterPairs, normalizeString
+import random, time, os, math
+from util import indexesFromSentence, filterPairs, normalizeString
 from torch import optim
 from lang import SOS_token, EOS_token, PAD_token
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 import numpy as np
-import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -382,15 +381,15 @@ def load_checkpoint(filename, encoder, decoder, enc_optim, dec_optim):
     return encoder, decoder, enc_optim, dec_optim, epoch, loss
 
 
-def get_datasets(lang1, lang2):
+def get_datasets(from_lang, to_lang):
     """
     Return two datasets as lists, one for training and one for development
-    :param lang1: source language
-    :param lang2: target language
+    :param from_lang: source language
+    :param to_lang: target language
     :return:
     """
-    train_file = "data/%s-%s.train" % (lang1, lang2)
-    dev_file = "data/%s-%s.dev" % (lang1, lang2)
+    train_file = "data/%s-%s.train" % (from_lang, to_lang)
+    dev_file = "data/%s-%s.dev" % (from_lang, to_lang)
 
     if os.path.isfile(train_file) and os.path.isfile(dev_file):
 
@@ -409,113 +408,15 @@ def get_datasets(lang1, lang2):
         raise Exception("Files not found")
 
 
-def split_save_datasets(pairs, lang1, lang2, split_percentage=0.1):
-    valid_size = int(len(pairs) * split_percentage)
-    valid_set_indices = np.random.choice(len(pairs), valid_size, replace=False)
-    print("Size of train/dev set to create is {}/{}".format(len(pairs) - len(valid_set_indices), len(valid_set_indices)))
-    valid_set_indices.sort()  # sort so that we pad efficiently
+def asMinutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
 
-    dev_pairs= []
-    train_pairs = []
 
-    for idx in range(len(pairs)):
-        if idx in valid_set_indices:
-            dev_pairs.append(pairs[idx])
-        else:
-            train_pairs.append(pairs[idx])
-
-    del pairs
-
-    print("Size of created train/dev set is {}/{}".format(len(train_pairs), len(dev_pairs)))
-
-    train_file = "data/%s-%s.train" % (lang1, lang2)
-    dev_file = "data/%s-%s.dev" % (lang1, lang2)
-
-    with open(train_file, 'w') as f:
-        for pair in train_pairs:
-            f.write("{}\t{}\n".format(pair[0], pair[1]))
-
-    with open(dev_file, 'w') as f:
-        for pair in dev_pairs:
-            f.write("{}\t{}\n".format(pair[0], pair[1]))
-
-    print("Wrote datasets to {} and {}".format(train_file, dev_file))
-
-    return train_pairs, dev_pairs
-
-# def evaluate(input_lang, output_lang, encoder, decoder, pair):
-#     with torch.no_grad():
-#
-#         # start_batch_idx = 0
-#         # end_batch_idx = np.minimum(batch_size, len(valid_data))
-#
-#         # while start_batch_idx < len(valid_data):
-#
-#         input_tensor, target_tensor = get_minibatch(pair, input_lang, output_lang)
-#
-#         input_length = input_tensor.size(0)
-#         encoder_hidden = encoder.initHidden(input_length)
-#         encoder_outputs = torch.zeros(input_length, encoder.hidden_size, device=device)
-#         encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
-#
-#         # TODO change this to use beam search
-#
-#         decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
-#         decoder_hidden = encoder_hidden
-#         decoded_words = []
-#         beam_width = 4
-#
-#         # First step of decoding
-#         decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-#
-#         top_values, top_indices = decoder_output.data.topk(beam_width)
-#         probs = top_values.squeeze()
-#         top_indices = top_indices.squeeze()
-#         decoders = [decoder for _ in range(beam_width)]
-#         decoders_hidden = [decoder_hidden for _ in range(beam_width)]
-#
-#         # For candidates
-#         candidates = [[] for _ in range(beam_width)]
-#         candidates_probs = []
-#
-#         # An EOS token has to be spit out eventually
-#         while len(top_indices) > 0:
-#             # Mean to store an array of tensors of length 'beam_width'
-#             new_probs = []
-#
-#             for idx, token_idx in enumerate(top_indices):
-#                 decoder_output, decoders_hidden[idx] = decoders[idx](token_idx, decoders_hidden[idx])
-#                 new_probs.append(probs[idx] + decoder_output.squeeze()) # Compute new probabilities
-#
-#             #print(new_probs)
-#             which_tensor, values, indices = get_largest(new_probs, beam_width)
-#
-#             # Need to populate decoders and decoders_hidden, as well as probs, and keep track of candidates
-#             print(which_tensor, values, indices)
-#
-#             # Reset the candidates so far
-#             for idx, which_one in enumerate(which_tensor):
-#                 # Make sure the past is that of the candidate
-#                 candidates[idx] = candidates[which_one].copy()
-#
-#             temp_decoders = decoders.copy()
-#             temp_decoders_hidden = decoders_hidden.copy()
-#
-#             for idx, which_one in enumerate(which_tensor):
-#                 # Store the token that led to this high probability
-#                 candidates[idx].append(top_indices[which_one].item())
-#
-#                 if indices[idx] != EOS_token: # we keep going
-#                     decoders[idx] = temp_decoders[which_one]
-#                     decoders_hidden[idx] = temp_decoders_hidden[which_one]
-#                     probs[idx] = values[idx]
-#                 else:
-#                     import sys
-#                     sys.exit(1)
-#
-#             for i in range(len(candidates)):
-#                 print([output_lang.index2word[idx] for idx in candidates[i]])
-#
-#             top_indices = indices
-#
-#         return candidates
+def timeSince(since, percent):
+    now = time.time()
+    s = now - since
+    es = s / (percent)
+    rs = es - s
+    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))

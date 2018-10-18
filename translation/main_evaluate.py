@@ -22,7 +22,7 @@ def main():
 
     encoder1, decoder1, _, _, _, _ = load_checkpoint("checkpoint.tar", encoder1, decoder1, None, None)
 
-    evaluateRandomly(dev_set, input_lang, output_lang, encoder1, decoder1, True, 1)
+    evaluateRandomly(dev_set, input_lang, output_lang, encoder1, decoder1, True, 3)
 
     #TODO: Use BLEU score
 

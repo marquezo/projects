@@ -1,34 +1,59 @@
 from util import prepareData, normalizeString
 from models import EncoderRNN, DecoderRNN
-from train_utils import trainIters, get_datasets, split_save_datasets
-import torch
+from train_utils import trainIters, get_datasets
+import torch, argparse, sys
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def main():
+def read_input():
+    parser = argparse.ArgumentParser(description="Train an NMT Seq2Seq model")
+    parser.add_argument('checkpoint', default='None')
+    parser.add_argument('lr', default=1e-4, type=float)
+    parser.add_argument('num_epochs', default=50, type=int)
+    parser.add_argument('batch_size', default=128, type=int)
+    parser.add_argument('hidden_size', default=256, type=int)
+    parser.add_argument('num_layers', default=1, type=int)
+    parser.add_argument('dropout', default=0.1, type=float)
+    parser.add_argument('teacher_forcing_ratio', default=1.0, type=float)
 
-    #TODO parse args
-    #TODO build a model with more capacity
+    args = parser.parse_args()
 
+    print("Read checkpoint: {}".format(args.checkpoint))
+    print("Read learning rate: {}".format(args.lr))
+    print("Read number of epochs: {}".format(args.num_epochs))
+    print("Read batch size: {}".format(args.batch_size))
+    print("Read hidden size: {}".format(args.hidden_size))
+    print("Read number of GRU layers: {}".format(args.num_layers))
+    print("Read dropout: {}".format(args.dropout))
+    print("Read teacher forcing ratio: {}".format(args.teacher_forcing_ratio))
+
+    return args
+
+
+if __name__ == "__main__":
     from_lang, to_lang = 'eng', 'fra'
+    args = read_input()
 
     print("Using device {}".format(device))
-    # To prepare the vocabularies, use all data
-    input_lang, output_lang, pairs = prepareData(from_lang, to_lang, False)
+
+    #To prepare the vocabularies, use all data
+    input_lang, output_lang, _ = prepareData(from_lang, to_lang, False)
 
     # Get datasets
     try:
         train_set, _ = get_datasets(from_lang, to_lang)
     except Exception as e:
-        train_set, _ = split_save_datasets(pairs, from_lang, to_lang)
+        print("Train dataset file not found. You might have to run split_datasets.py")
+        sys.exit(-1)
 
-    hidden_size = 256
-    encoder1 = EncoderRNN(input_lang.n_words, hidden_size).to(device)
-    decoder1 = DecoderRNN(output_lang.n_words, hidden_size, dropout_p=0.1).to(device)
+    # TODO load checkpoint
 
-    trainIters(train_set, input_lang, output_lang, encoder1, decoder1, 20, 1.0, True, reverse_input=True, batch_size=128)
+    hidden_size = args.hidden_size
+    encoder = EncoderRNN(input_lang.n_words, args.hidden_size, args.num_layers).to(device)
+    decoder = DecoderRNN(output_lang.n_words, args.hidden_size, args.num_layers, dropout_p=args.dropout).to(device)
 
-    #TODO: Use BLEU score
+    trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
+               False, reverse_input=True, batch_size=args.batch_size)
 
-if __name__ == "__main__": main()
+    # TODO: Use BLEU score
