@@ -13,12 +13,6 @@ class EncoderRNN(nn.Module):
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True, num_layers=self.num_layers)
 
-        for p in self.gru.parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0)
-            else:
-                nn.init.uniform_(p, -0.08, 0.08)
-
     def forward(self, input, hidden):
         """
         :param input: dimensions batch_size x sequence_length
@@ -48,14 +42,6 @@ class DecoderRNN(nn.Module):
         self.dropout = nn.Dropout(self.dropout_p)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=-1)
-
-        self.out.weight = nn.init.xavier_uniform_(self.out.weight)
-
-        for p in self.gru.parameters():
-            if p.dim() == 1:
-                nn.init.constant_(p, 0)
-            else:
-                nn.init.uniform_(p, -0.08, 0.08)
 
     def forward(self, input, hidden):
 

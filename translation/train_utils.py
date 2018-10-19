@@ -362,7 +362,9 @@ def load_checkpoint(filename, encoder, decoder, optimizer):
     loss = checkpoint['loss']
     encoder.load_state_dict(checkpoint['encoder'])
     decoder.load_state_dict(checkpoint['decoder'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
+
+    if optimizer is not None:
+        optimizer.load_state_dict(checkpoint['optimizer'])
 
     print("Loaded checkpoint - epoch {} having loss {}".format(epoch, loss))
 
