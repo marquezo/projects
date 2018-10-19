@@ -196,14 +196,19 @@ def evaluate(input_lang, output_lang, encoder, decoder, pair):
         encoder_hidden = encoder.initHidden(input_length)
         _, encoder_hidden = encoder(input_tensor, encoder_hidden)
 
-        #greedy_search(decoder, encoder_hidden, output_lang)
-
         results = beam_search(decoder, encoder_hidden)
 
-        for i in range(len(results)):
-            print([output_lang.index2word[idx] for idx in results[i][0]], results[i][1].item())
+        idx_highest_prob = 0
+        highest_prob = -1000.
 
-        return []
+        for idx, (prob, _) in enumerate(results):
+            if prob.item() > highest_prob:
+                idx_highest_prob = idx
+                highest_prob = prob.item()
+
+        output = [output_lang.index2word[idx] for idx in results[idx_highest_prob][1]]
+
+        return output
 
 
 def greedy_search(decoder, encoder_hidden, output_lang):
@@ -274,7 +279,7 @@ def beam_search(decoder, encoder_hidden, beam_width=3):
         # If we encounter an EOS, this candidate is a possible result
         for idx_, to_evaluate_tuple in enumerate(to_evaluate):
             if to_evaluate_tuple[3] == EOS_token:
-                results.append((candidates[idx_], to_evaluate_tuple[2]))  # Add sequence and likelihood
+                results.append((to_evaluate_tuple[2], candidates[idx_]))  # Add probability and sequence
             else:
                 new_candidates.append(candidates[idx_])
                 to_evaluate_copy.append(to_evaluate_tuple)
