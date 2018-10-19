@@ -128,7 +128,7 @@ def train(input_tensor, target_tensor, encoder, decoder, optimizer,
 
 
 def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, optimizer, simplify=False,
-               reverse_input = False, learning_rate=0.01, batch_size=2):
+               reverse_input=False, learning_rate=0.01, batch_size=2):
     # start = time.time()
     # plot_losses = []
 
@@ -183,14 +183,14 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
         save_checkpoint(epoch_idx + 1, encoder, decoder, optimizer, print_loss_total/num_minibatches)
 
 
-def evaluate(input_lang, output_lang, encoder, decoder, pair):
+def evaluate(input_lang, output_lang, encoder, decoder, pair, reverse_input=False):
 
     encoder.eval()
     decoder.eval()
 
     with torch.no_grad():
 
-        input_tensor, _ = get_minibatch(pair, input_lang, output_lang)
+        input_tensor, _ = get_minibatch(pair, input_lang, output_lang, reverse_input)
 
         input_length = input_tensor.size(0)
         encoder_hidden = encoder.initHidden(input_length)
@@ -310,7 +310,7 @@ def print_results(input_sentences, output_tensor, output_lang):
         print(input_sentences[sample_idx], '->', decoded_words)
 
 
-def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, simplify=False, n=10):
+def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, simplify=False, n=10, reverse_input=False):
 
     if simplify:
         valid_data = filterPairs(valid_data)
@@ -319,7 +319,7 @@ def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, simp
         pair = random.choice(valid_data)
         print('>', pair[0])
         print('=', pair[1])
-        output_words = evaluate(input_lang, output_lang, encoder, decoder, [pair])
+        output_words = evaluate(input_lang, output_lang, encoder, decoder, [pair], reverse_input)
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')

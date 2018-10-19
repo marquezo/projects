@@ -17,6 +17,7 @@ def read_input():
     parser.add_argument('num_layers', default=1, type=int)
     parser.add_argument('dropout', default=0.1, type=float)
     parser.add_argument('teacher_forcing_ratio', default=1.0, type=float)
+    parser.add_argument('reverse_input', type=bool)
 
     args = parser.parse_args()
 
@@ -28,6 +29,7 @@ def read_input():
     print("Read number of GRU layers: {}".format(args.num_layers))
     print("Read dropout: {}".format(args.dropout))
     print("Read teacher forcing ratio: {}".format(args.teacher_forcing_ratio))
+    print("Read reverse input: {}".format(args.reverse_input))
 
     return args
 
@@ -57,10 +59,10 @@ if __name__ == "__main__":
         print("Found checkpoint at {}".format(args.checkpoint))
         encoder, decoder, optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, optimizer)
         trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
+               optimizer, simplify=False, reverse_input=args.reverse_input, learning_rate=args.lr, batch_size=args.batch_size)
     else:
         print("Training from scratch")
         trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
+               optimizer, simplify=False, reverse_input=args.reverse_input, learning_rate=args.lr, batch_size=args.batch_size)
 
     # TODO: Use BLEU score

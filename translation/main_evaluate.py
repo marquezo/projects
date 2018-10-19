@@ -10,11 +10,13 @@ def read_input():
     parser = argparse.ArgumentParser(description="Evaluate an NMT Seq2Seq model")
     parser.add_argument('checkpoint')
     parser.add_argument('num_sentences', type=int)
+    parser.add_argument('reverse_input', type=bool)
 
     args = parser.parse_args()
 
     print("Read checkpoint: {}".format(args.checkpoint))
     print("Read number of sentences: {}".format(args.num_sentences))
+    print("Read reverse input: {}".format(args.reverse_input))
 
     return args
 
@@ -36,6 +38,6 @@ if __name__ == "__main__":
 
     encoder, decoder, _, _, _ = load_checkpoint(args.checkpoint, encoder, decoder, None)
 
-    evaluateRandomly(dev_set, input_lang, output_lang, encoder, decoder, False, args.num_sentences)
+    evaluateRandomly(dev_set, input_lang, output_lang, encoder, decoder, False, args.num_sentences, args.reverse_input)
 
     #TODO: Use BLEU score
