@@ -51,7 +51,7 @@ def get_minibatch(pairs, input_lang, output_lang, reverse_input=False):
     return pad_sequence(list_input_sentences, batch_first=True), pad_sequence(list_output_sentences, batch_first=True)
 
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer,
+def train(input_tensor, target_tensor, encoder, decoder, optimizer,
           criterion, teacher_forcing_ratio):
     """
 
@@ -66,11 +66,9 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     :return:
     """
 
-    encoder_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
+    optimizer.zero_grad()
 
     input_length = input_tensor.size(0)
-    target_length = target_tensor.size(1)
 
     encoder_hidden = encoder.initHidden(input_length)
 
@@ -123,15 +121,13 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         loss = loss/num_values # divide by mini-batch size
 
     loss.backward()
-
-    encoder_optimizer.step()
-    decoder_optimizer.step()
+    optimizer.step()
 
     # Call detach to return a tensor detached from the current graph
     return loss.detach()
 
 
-def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, encoder_optimizer, decoder_optimizer, simplify=False,
+def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, optimizer, simplify=False,
                reverse_input = False, learning_rate=0.01, batch_size=2):
     # start = time.time()
     # plot_losses = []
@@ -162,7 +158,7 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
                                                         input_lang, output_lang, reverse_input)
 
             loss = train(input_tensor, target_tensor, encoder,
-                         decoder, encoder_optimizer, decoder_optimizer, criterion, teacher_forcing_ratio)
+                         decoder, optimizer, criterion, teacher_forcing_ratio)
 
             print_loss_total += loss.item()
             plot_loss_total += loss.item()
@@ -184,7 +180,7 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
 
         #showPlot(plot_losses)
         print("Average Loss after epoch {}/{}: {:5f}".format(epoch_idx + 1, n_epochs, print_loss_total/num_minibatches))
-        save_checkpoint(epoch_idx + 1, encoder, decoder, encoder_optimizer, decoder_optimizer, print_loss_total/num_minibatches)
+        save_checkpoint(epoch_idx + 1, encoder, decoder, optimizer, print_loss_total/num_minibatches)
 
 
 def evaluate(input_lang, output_lang, encoder, decoder, pair):
@@ -346,20 +342,19 @@ def get_largest(tensors, num_largest):
     return which, top_values, top_idx % tensor_len
 
 
-def save_checkpoint(epoch, encoder, decoder, enc_optim, dec_optim, loss, filename="checkpoint.tar"):
+def save_checkpoint(epoch, encoder, decoder, optimizer, loss, filename="checkpoint.tar"):
     state = {
         'epoch': epoch,
         'encoder': encoder.state_dict(),
         'decoder': decoder.state_dict(),
-        'enc_optim': enc_optim.state_dict(),
-        'dec_optim': dec_optim.state_dict(),
+        'optimizer': optimizer.state_dict(),
         'loss': loss
     }
 
     torch.save(state, filename)
 
 
-def load_checkpoint(filename, encoder, decoder, enc_optim, dec_optim):
+def load_checkpoint(filename, encoder, decoder, optimizer):
     print("Loading checkpoint saved in {}".format(filename))
 
     checkpoint = torch.load(filename)
@@ -367,16 +362,11 @@ def load_checkpoint(filename, encoder, decoder, enc_optim, dec_optim):
     loss = checkpoint['loss']
     encoder.load_state_dict(checkpoint['encoder'])
     decoder.load_state_dict(checkpoint['decoder'])
-
-    if enc_optim is not None:
-        enc_optim.load_state_dict(checkpoint['enc_optim'])
-
-    if dec_optim is not None:
-        dec_optim.load_state_dict(checkpoint['dec_optim'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
 
     print("Loaded checkpoint - epoch {} having loss {}".format(epoch, loss))
 
-    return encoder, decoder, enc_optim, dec_optim, epoch, loss
+    return encoder, decoder, optimizer, epoch, loss
 
 
 def get_datasets(from_lang, to_lang):

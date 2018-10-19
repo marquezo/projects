@@ -51,17 +51,16 @@ if __name__ == "__main__":
     hidden_size = args.hidden_size
     encoder = EncoderRNN(input_lang.n_words, args.hidden_size, args.num_layers).to(device)
     decoder = DecoderRNN(output_lang.n_words, args.hidden_size, args.num_layers, dropout_p=args.dropout).to(device)
-    enc_optimizer = optim.Adam(encoder.parameters(), lr=args.lr)
-    dec_optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
+    optimizer = optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=args.lr)
 
     if args.checkpoint != 'None':
         print("Found checkpoint at {}".format(args.checkpoint))
-        encoder, decoder, enc_optimizer, dec_optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, enc_optimizer, dec_optimizer)
+        encoder, decoder, optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, optimizer)
         trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               enc_optimizer, dec_optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
+               optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
     else:
-        print("Training from scratch {}")
+        print("Training from scratch")
         trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               enc_optimizer, dec_optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
+               optimizer, simplify=False, reverse_input=True, learning_rate=args.lr, batch_size=args.batch_size)
 
     # TODO: Use BLEU score
