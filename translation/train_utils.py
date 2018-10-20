@@ -375,6 +375,7 @@ def save_checkpoint(epoch, encoder, decoder, optimizer, loss, filename="checkpoi
     }
 
     torch.save(state, filename)
+    print("Saved checkpoint {}".format(filename))
 
 
 def load_checkpoint(filename, encoder, decoder, optimizer):
