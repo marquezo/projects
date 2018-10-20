@@ -9,6 +9,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def read_input():
     parser = argparse.ArgumentParser(description="Train an NMT Seq2Seq model")
+    parser.add_argument('name', type=str)
     parser.add_argument('checkpoint', default='None')
     parser.add_argument('lr', default=1e-4, type=float)
     parser.add_argument('num_epochs', default=50, type=int)
@@ -25,6 +26,7 @@ def read_input():
 
     args = parser.parse_args()
 
+    print("Read experiment name: {}".format(args.name))
     print("Read checkpoint: {}".format(args.checkpoint))
     print("Read learning rate: {}".format(args.lr))
     print("Read number of epochs: {}".format(args.num_epochs))
@@ -64,12 +66,12 @@ if __name__ == "__main__":
     if args.checkpoint != 'None':
         print("Found checkpoint at {}".format(args.checkpoint))
         encoder, decoder, optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, optimizer)
-        trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
+        trainIters(args.name, train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
                optimizer, simplify=False, reverse_input=args.reverse_input, use_attention=args.use_attention,
                    learning_rate=args.lr, batch_size=args.batch_size)
     else:
         print("Training from scratch")
-        trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
+        trainIters(args.name, train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
                optimizer, simplify=False, reverse_input=args.reverse_input, use_attention=args.use_attention,
                    learning_rate=args.lr, batch_size=args.batch_size)
 
