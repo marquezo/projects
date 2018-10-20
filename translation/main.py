@@ -17,7 +17,11 @@ def read_input():
     parser.add_argument('num_layers', default=1, type=int)
     parser.add_argument('dropout', default=0.1, type=float)
     parser.add_argument('teacher_forcing_ratio', default=1.0, type=float)
-    parser.add_argument('reverse_input', type=bool)
+    parser.add_argument('--reverse-input', dest='reverse_input', action='store_true')
+    parser.add_argument('--no-reverse-input', dest='reverse_input', action='store_false')
+    parser.add_argument('--attention', dest='use_attention', action='store_true')
+    parser.add_argument('--no-attention', dest='use_attention', action='store_false')
+    parser.set_defaults(feature=True)
 
     args = parser.parse_args()
 
@@ -30,6 +34,7 @@ def read_input():
     print("Read dropout: {}".format(args.dropout))
     print("Read teacher forcing ratio: {}".format(args.teacher_forcing_ratio))
     print("Read reverse input: {}".format(args.reverse_input))
+    print("Read use_attention: {}".format(args.use_attention))
 
     return args
 
@@ -52,17 +57,20 @@ if __name__ == "__main__":
 
     hidden_size = args.hidden_size
     encoder = EncoderRNN(input_lang.n_words, args.hidden_size, args.num_layers).to(device)
-    decoder = DecoderRNN(output_lang.n_words, args.hidden_size, args.num_layers, dropout_p=args.dropout).to(device)
+    decoder = DecoderRNN(output_lang.n_words, args.hidden_size, args.num_layers, dropout_p=args.dropout,
+                         use_attention=args.use_attention).to(device)
     optimizer = optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=args.lr)
 
     if args.checkpoint != 'None':
         print("Found checkpoint at {}".format(args.checkpoint))
         encoder, decoder, optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, optimizer)
         trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               optimizer, simplify=False, reverse_input=args.reverse_input, learning_rate=args.lr, batch_size=args.batch_size)
+               optimizer, simplify=False, reverse_input=args.reverse_input, use_attention=args.use_attention,
+                   learning_rate=args.lr, batch_size=args.batch_size)
     else:
         print("Training from scratch")
         trainIters(train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               optimizer, simplify=False, reverse_input=args.reverse_input, learning_rate=args.lr, batch_size=args.batch_size)
+               optimizer, simplify=False, reverse_input=args.reverse_input, use_attention=args.use_attention,
+                   learning_rate=args.lr, batch_size=args.batch_size)
 
     # TODO: Use BLEU score

@@ -52,73 +52,95 @@ def get_minibatch(pairs, input_lang, output_lang, reverse_input=False):
 
 
 def train(input_tensor, target_tensor, encoder, decoder, optimizer,
-          criterion, teacher_forcing_ratio):
+          criterion, teacher_forcing_ratio, use_attention=False):
     """
-
-    :param input_tensor:
-    :param target_tensor:
+    :param input_tensor: [batch_size x input_seq_len]
+    :param target_tensor: [batch_size x output_seq_len]
     :param encoder:
     :param decoder:
-    :param encoder_optimizer:
-    :param decoder_optimizer:
+    :param optimizer:
     :param criterion:
     :param teacher_forcing_ratio: For only teacher forcing, pass 1.0
     :return:
     """
-
     optimizer.zero_grad()
-
     input_length = input_tensor.size(0)
-
     encoder_hidden = encoder.initHidden(input_length)
-
     encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
-
     decoder_hidden = encoder_hidden
-
-    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
     loss = 0
 
-    if use_teacher_forcing:
-        # Teacher forcing: Feed the target as the next input, ignore <EOS> token at the end
-        decoder_output, decoder_hidden = decoder(target_tensor[:, :-1], decoder_hidden)
-
-        # Need to swap the dimensions not corresponding to the minibatch for NLLoss to work
-        # To calculate loss, ignore <SOS> token
-        loss_batch = criterion(decoder_output.transpose(1, 2), target_tensor[:, 1:])
-
-        # Remember that we padded the target tensor, so find out the number of outputs
-        # Sum the loss and divide by the number of outputs
-        loss = loss_batch.sum() / torch.nonzero(target_tensor[:, 1:]).size(0)
-    else:
-        # Without teacher forcing: use its own predictions as the next input
-        # encoder_hidden: 1 x batch_size x d_hidden
+    if use_attention:
+        # encoder_hidden: 1 x batch_size x hidden_size
         # For each hidden state in the minibatch
-        # For as many tokens in the target until finding EOS, pass the previous output
-        # In this case, we don't set decoder_hidden = encoder_hidden because we use decoder_hidden below
-        num_values = 0
+        # encoder_output: batch_size x seq_len x hidden_size
+        target_length = target_tensor.size(1) - 1  # ignore EOS token
 
-        for sample_idx in range(encoder_hidden.size(1)):
-            decoder_hidden = encoder_hidden[0][sample_idx].view(1, 1, -1)
-            decoder_input = torch.tensor([[SOS_token]], device=device)
+        for idx_target in range(target_length):
+            targets = target_tensor[:, idx_target]
 
-            sample_target_tensor = target_tensor[sample_idx, 1:]
+            # Teacher forcing: Feed the target as the next input, ignore <EOS> token at the end
+            decoder_output, decoder_hidden = decoder(targets, decoder_hidden, encoder_output)
 
-            for di in range(sample_target_tensor.size(0)):
-                decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
-                topv, topi = decoder_output.topk(1) #Get the most probable word
-                decoder_input = topi.squeeze().detach()  # detach from history as input
+            #print("decoded", decoder_output.size(), decoder_hidden.size())
 
-                decoder_output = decoder_output.squeeze(0)
+            # To calculate loss, ignore <SOS> token, so do +1. It will not overflow because target_length = seq_len - 1
+            # Need to do unsqueeze because PyTorch wants it like that
+            target_tensor_idx = target_tensor[:, idx_target + 1].unsqueeze(1)
+            # Need to swap the dimensions not corresponding to the minibatch for NLLoss to work
+            loss_batch = criterion(decoder_output.transpose(1, 2), target_tensor_idx)
 
-                loss += criterion(decoder_output, sample_target_tensor[di].view(1))
-                num_values += 1
+            # Remember that we padded the target tensor, so find out the number of outputs
+            # Sum the loss and divide by the number of outputs
+            loss += loss_batch.sum()
 
-                if decoder_input.item() == EOS_token:
-                    break
+        loss = loss / torch.nonzero(target_tensor[:, 1:]).size(0)
 
-        loss = loss/num_values # divide by mini-batch size
+        print("Attention loss", loss.item())
+
+    else:
+        use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
+
+        if use_teacher_forcing:
+            # Teacher forcing: Feed the target as the next input, ignore <EOS> token at the end
+            decoder_output, decoder_hidden = decoder(target_tensor[:, :-1], decoder_hidden)
+
+            # Need to swap the dimensions not corresponding to the minibatch for NLLoss to work
+            # To calculate loss, ignore <SOS> token
+            loss_batch = criterion(decoder_output.transpose(1, 2), target_tensor[:, 1:])
+
+            # Remember that we padded the target tensor, so find out the number of outputs
+            # Sum the loss and divide by the number of outputs
+            loss = loss_batch.sum() / torch.nonzero(target_tensor[:, 1:]).size(0)
+        else:
+            # Without teacher forcing: use its own predictions as the next input
+            # encoder_hidden: 1 x batch_size x hidden_size
+            # For each hidden state in the minibatch
+            # For as many tokens in the target until finding EOS, pass the previous output
+            # In this case, we don't set decoder_hidden = encoder_hidden because we use decoder_hidden below
+            num_values = 0
+
+            for sample_idx in range(encoder_hidden.size(1)): # for each sample in the minibatch
+                decoder_hidden = encoder_hidden[0][sample_idx].view(1, 1, -1)
+                decoder_input = torch.tensor([[SOS_token]], device=device)
+
+                sample_target_tensor = target_tensor[sample_idx, 1:]
+
+                for di in range(sample_target_tensor.size(0)):
+                    decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+                    topv, topi = decoder_output.topk(1) #Get the most probable word
+                    decoder_input = topi.squeeze().detach()  # detach from history as input
+
+                    decoder_output = decoder_output.squeeze(0)
+
+                    loss += criterion(decoder_output, sample_target_tensor[di].view(1))
+                    num_values += 1
+
+                    if decoder_input.item() == EOS_token:
+                        break
+
+            loss = loss/num_values # divide by mini-batch size
 
     loss.backward()
     optimizer.step()
@@ -128,12 +150,13 @@ def train(input_tensor, target_tensor, encoder, decoder, optimizer,
 
 
 def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, optimizer, simplify=False,
-               reverse_input=False, learning_rate=0.01, batch_size=2):
+               reverse_input=False, use_attention=False, learning_rate=0.01, batch_size=2):
     # start = time.time()
     # plot_losses = []
 
     print("Training for {} epochs with batch size {}, learning rate {} and teacher forcing ratio {}".
           format(n_epochs, batch_size, learning_rate, teacher_forcing_ratio))
+    print("Training with attention: {}".format(use_attention))
 
     if simplify:
         train_data = filterPairs(train_data)
@@ -158,7 +181,7 @@ def trainIters(train_data, input_lang, output_lang, encoder, decoder, n_epochs, 
                                                         input_lang, output_lang, reverse_input)
 
             loss = train(input_tensor, target_tensor, encoder,
-                         decoder, optimizer, criterion, teacher_forcing_ratio)
+                         decoder, optimizer, criterion, teacher_forcing_ratio, use_attention)
 
             print_loss_total += loss.item()
             plot_loss_total += loss.item()
