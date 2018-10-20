@@ -66,7 +66,6 @@ class DecoderRNN(nn.Module):
             #print("using attention in decoder:", output.size())
 
         output = F.relu(output)
-        #print(output.size(), hidden.size())
         output, hidden = self.gru(output, hidden)
         output = self.out(output)
         output = self.softmax(output)

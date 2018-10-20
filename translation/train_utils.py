@@ -1,7 +1,6 @@
 import torch
 import random, time, os, math
 from util import indexesFromSentence, filterPairs, normalizeString
-from torch import optim
 from lang import SOS_token, EOS_token, PAD_token
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
@@ -83,22 +82,16 @@ def train(input_tensor, target_tensor, encoder, decoder, optimizer,
             # Teacher forcing: Feed the target as the next input, ignore <EOS> token at the end
             decoder_output, decoder_hidden = decoder(targets, decoder_hidden, encoder_output)
 
-            #print("decoded", decoder_output.size(), decoder_hidden.size())
-
             # To calculate loss, ignore <SOS> token, so do +1. It will not overflow because target_length = seq_len - 1
             # Need to do unsqueeze because PyTorch wants it like that
             target_tensor_idx = target_tensor[:, idx_target + 1].unsqueeze(1)
             # Need to swap the dimensions not corresponding to the minibatch for NLLoss to work
             loss_batch = criterion(decoder_output.transpose(1, 2), target_tensor_idx)
-
-            # Remember that we padded the target tensor, so find out the number of outputs
-            # Sum the loss and divide by the number of outputs
             loss += loss_batch.sum()
 
+        # Remember that we padded the target tensor, so find out the number of outputs
+        # Sum the loss and divide by the number of outputs
         loss = loss / torch.nonzero(target_tensor[:, 1:]).size(0)
-
-        print("Attention loss", loss.item())
-
     else:
         use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
