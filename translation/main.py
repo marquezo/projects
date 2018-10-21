@@ -22,6 +22,8 @@ def read_input():
     parser.add_argument('--no-reverse-input', dest='reverse_input', action='store_false')
     parser.add_argument('--attention', dest='use_attention', action='store_true')
     parser.add_argument('--no-attention', dest='use_attention', action='store_false')
+    parser.add_argument('--simplify', dest='simplify', action='store_true')
+    parser.add_argument('--no-simplify', dest='simplify', action='store_false')
     parser.set_defaults(feature=True)
 
     args = parser.parse_args()
@@ -37,6 +39,7 @@ def read_input():
     print("Read teacher forcing ratio: {}".format(args.teacher_forcing_ratio))
     print("Read reverse input: {}".format(args.reverse_input))
     print("Read use_attention: {}".format(args.use_attention))
+    print("Read simplify: {}".format(args.simplify))
 
     return args
 
@@ -67,12 +70,12 @@ if __name__ == "__main__":
         print("Found checkpoint at {}".format(args.checkpoint))
         encoder, decoder, optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, optimizer)
         trainIters(args.name, train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               optimizer, simplify=False, reverse_input=args.reverse_input, use_attention=args.use_attention,
+               optimizer, simplify=args.simplify, reverse_input=args.reverse_input, use_attention=args.use_attention,
                    learning_rate=args.lr, batch_size=args.batch_size)
     else:
         print("Training from scratch")
         trainIters(args.name, train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
-               optimizer, simplify=False, reverse_input=args.reverse_input, use_attention=args.use_attention,
+               optimizer, simplify=args.simplify, reverse_input=args.reverse_input, use_attention=args.use_attention,
                    learning_rate=args.lr, batch_size=args.batch_size)
 
     # TODO: Use BLEU score
