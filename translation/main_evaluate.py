@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     hidden_size = 256
     encoder = EncoderRNN(input_lang.n_words, hidden_size, 1).to(device)
-    decoder = DecoderRNN(output_lang.n_words, hidden_size, 1, dropout_p=0.1).to(device)
+    decoder = DecoderRNN(output_lang.n_words, hidden_size, 1, dropout_p=0.1, use_attention=args.use_attention).to(device)
 
     encoder, decoder, _, _, _ = load_checkpoint(args.checkpoint, encoder, decoder, None)
 
