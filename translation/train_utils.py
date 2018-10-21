@@ -254,7 +254,7 @@ def greedy_search(decoder, encoder_hidden, output_lang):
     print([word for word in decoded_words])
 
 
-def beam_search(decoder, encoder_hidden, beam_width=3, encoder_output=None):
+def beam_search(decoder, encoder_hidden, encoder_output=None, beam_width=3):
     decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
 
     # First step of decoding
