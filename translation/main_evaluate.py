@@ -10,13 +10,18 @@ def read_input():
     parser = argparse.ArgumentParser(description="Evaluate an NMT Seq2Seq model")
     parser.add_argument('checkpoint')
     parser.add_argument('num_sentences', type=int)
-    parser.add_argument('reverse_input', type=bool)
+    parser.add_argument('--reverse-input', dest='reverse_input', action='store_true')
+    parser.add_argument('--no-reverse-input', dest='reverse_input', action='store_false')
+    parser.add_argument('--attention', dest='use_attention', action='store_true')
+    parser.add_argument('--no-attention', dest='use_attention', action='store_false')
+    parser.set_defaults(feature=True)
 
     args = parser.parse_args()
 
     print("Read checkpoint: {}".format(args.checkpoint))
     print("Read number of sentences: {}".format(args.num_sentences))
     print("Read reverse input: {}".format(args.reverse_input))
+    print("Read use_attention: {}".format(args.use_attention))
 
     return args
 
@@ -38,6 +43,7 @@ if __name__ == "__main__":
 
     encoder, decoder, _, _, _ = load_checkpoint(args.checkpoint, encoder, decoder, None)
 
-    evaluateRandomly(dev_set, input_lang, output_lang, encoder, decoder, False, args.num_sentences, args.reverse_input)
+    evaluateRandomly(dev_set, input_lang, output_lang, encoder, decoder, False, args.num_sentences, args.reverse_input,
+                     args.use_attention)
 
     #TODO: Use BLEU score

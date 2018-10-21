@@ -201,7 +201,7 @@ def trainIters(experiment_name, train_data, input_lang, output_lang, encoder, de
                         filename=experiment_name + ".tar")
 
 
-def evaluate(input_lang, output_lang, encoder, decoder, pair, reverse_input=False):
+def evaluate(input_lang, output_lang, encoder, decoder, pair, reverse_input=False, use_attention=False):
 
     encoder.eval()
     decoder.eval()
@@ -212,9 +212,12 @@ def evaluate(input_lang, output_lang, encoder, decoder, pair, reverse_input=Fals
 
         input_length = input_tensor.size(0)
         encoder_hidden = encoder.initHidden(input_length)
-        _, encoder_hidden = encoder(input_tensor, encoder_hidden)
+        encoder_output, encoder_hidden = encoder(input_tensor, encoder_hidden)
 
-        results = beam_search(decoder, encoder_hidden)
+        if not use_attention:
+            encoder_output = None
+
+        results = beam_search(decoder, encoder_hidden, encoder_output)
 
         idx_highest_prob = 0
         highest_prob = -1000.
@@ -251,11 +254,11 @@ def greedy_search(decoder, encoder_hidden, output_lang):
     print([word for word in decoded_words])
 
 
-def beam_search(decoder, encoder_hidden, beam_width=3):
+def beam_search(decoder, encoder_hidden, beam_width=3, encoder_output=None):
     decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
 
     # First step of decoding
-    decoder_output, decoder_hidden = decoder(decoder_input, encoder_hidden)
+    decoder_output, decoder_hidden = decoder(decoder_input, encoder_hidden, encoder_output)
 
     top_values, top_indices = decoder_output.data.topk(beam_width)
     probs = top_values.squeeze()
@@ -271,7 +274,7 @@ def beam_search(decoder, encoder_hidden, beam_width=3):
         new_probs = []
 
         for idx, (decoder_, decoder_hidden_, prob_, top_idx_) in enumerate(to_evaluate):
-            decoder_output, temp_decoder_hidden = decoder_(top_idx_, decoder_hidden_)
+            decoder_output, temp_decoder_hidden = decoder_(top_idx_, decoder_hidden_, encoder_output)
             to_evaluate[idx] = (decoder_, temp_decoder_hidden, prob_, top_idx_)
             new_probs.append(prob_ + decoder_output.squeeze())  # Compute new probabilities
 
@@ -328,7 +331,8 @@ def print_results(input_sentences, output_tensor, output_lang):
         print(input_sentences[sample_idx], '->', decoded_words)
 
 
-def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, simplify=False, n=10, reverse_input=False):
+def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder,
+                     simplify=False, n=10, reverse_input=False, use_attention=False):
 
     if simplify:
         valid_data = filterPairs(valid_data)
@@ -337,7 +341,7 @@ def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder, simp
         pair = random.choice(valid_data)
         print('>', pair[0])
         print('=', pair[1])
-        output_words = evaluate(input_lang, output_lang, encoder, decoder, [pair], reverse_input)
+        output_words = evaluate(input_lang, output_lang, encoder, decoder, [pair], reverse_input, use_attention)
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')
