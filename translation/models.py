@@ -62,10 +62,11 @@ class DecoderRNN(nn.Module):
         # The idea is that instead of conditioning on one vector containing all the input,
         # condition on specific parts of the input
         if self.use_attention and encoder_outputs is not None:
-            output = self.attention(output.squeeze(0), encoder_outputs).squeeze().unsqueeze(1)
+            output = self.attention(output.squeeze(0), encoder_outputs)
             #print("using attention in decoder:", output.size())
 
-        output = F.relu(output)
+        output = F.relu(output) # [ batch_size x seq_len x hidden_size ]
+        print(output.size(), hidden.size())
         output, hidden = self.gru(output, hidden)
         output = self.out(output)
         output = self.softmax(output)

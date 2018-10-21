@@ -36,7 +36,7 @@ class Attention(nn.Module):
         weights = F.softmax(logits, dim=1)
 
         # Compute the weighted sum of annotations: [batch_size x hidden_size x seq_len] x [batch_size x seq_len x 1]
-        expected_annotation = torch.bmm(ref, weights.unsqueeze(2))
+        expected_annotation = torch.bmm(ref, weights.unsqueeze(2)) # [batch_size x hidden_size x 1]
 
-        return expected_annotation
+        return expected_annotation.permute(0, 2, 1) # [batch_size x 1 x hidden_size]
 
