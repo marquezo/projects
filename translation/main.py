@@ -61,7 +61,7 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     hidden_size = args.hidden_size
-    encoder = EncoderRNN(input_lang.n_words, args.hidden_size, args.num_layers).to(device)
+    encoder = EncoderRNN(input_lang.n_words, args.hidden_size, args.num_layers, dropout_p=args.dropout).to(device)
     decoder = DecoderRNN(output_lang.n_words, args.hidden_size, args.num_layers, dropout_p=args.dropout,
                          use_attention=args.use_attention).to(device)
     optimizer = optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=args.lr)

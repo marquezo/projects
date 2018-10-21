@@ -7,10 +7,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers):
+    def __init__(self, input_size, hidden_size, num_layers, dropout_p=0.1):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        self.dropout = nn.Dropout(dropout_p)
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True, num_layers=self.num_layers)
 
@@ -21,8 +22,7 @@ class EncoderRNN(nn.Module):
         :return:
         """
         embedded = self.embedding(input)
-
-        output = embedded
+        output = self.dropout(embedded)
         output, hidden = self.gru(output, hidden)
 
         return output, hidden
@@ -35,12 +35,11 @@ class DecoderRNN(nn.Module):
     def __init__(self, output_size, hidden_size, num_layers, dropout_p=0.1, use_attention=False):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.dropout_p = dropout_p
         self.num_layers = num_layers
 
         self.embedding = nn.Embedding(output_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True, num_layers=self.num_layers)
-        self.dropout = nn.Dropout(self.dropout_p)
+        self.dropout = nn.Dropout(dropout_p)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=-1)
         self.use_attention = use_attention
@@ -62,7 +61,9 @@ class DecoderRNN(nn.Module):
         # The idea is that instead of conditioning on one vector containing all the input,
         # condition on specific parts of the input
         if self.use_attention and encoder_outputs is not None:
-            output = self.attention(output.squeeze(0), encoder_outputs)
+            #print("Before attention", hidden.size())
+            # [output and hidden: 1 x batch_size x hidden_size ]
+            output = self.attention(output.squeeze(0), hidden.squeeze(0), encoder_outputs)
             #print("using attention in decoder:", output.size())
 
         output = F.relu(output) # [ batch_size x seq_len x hidden_size ]

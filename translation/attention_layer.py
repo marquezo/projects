@@ -12,14 +12,16 @@ class Attention(nn.Module):
         self.W_query = nn.Linear(hidden_size, hidden_size)
         # use a 1D convolution instead of a linear layer to not depend on sequence length
         self.W_ref = nn.Conv1d(hidden_size, hidden_size, 1, 1)
+        self.W_out = nn.Linear(hidden_size * 2, hidden_size)
         V = torch.FloatTensor(hidden_size, device=device)
 
         self.V = nn.Parameter(V)
         self.V.data.uniform_(-(1. / math.sqrt(hidden_size)), 1. / math.sqrt(hidden_size))
 
-    def forward(self, query, ref):
+    def forward(self, output, query, ref):
         """
         Args:
+            output: [batch_size x hidden_size] --> only used at the very end
             query: [batch_size x hidden_size]
             ref:   [batch_size x seq_len x hidden_size]
         """
@@ -37,6 +39,11 @@ class Attention(nn.Module):
 
         # Compute the weighted sum of annotations: [batch_size x hidden_size x seq_len] x [batch_size x seq_len x 1]
         expected_annotation = torch.bmm(ref, weights.unsqueeze(2)) # [batch_size x hidden_size x 1]
+        #expected_annotation = expected_annotation.permute(0, 2, 1) # [batch_size x 1 x hidden_size]
 
-        return expected_annotation.permute(0, 2, 1) # [batch_size x 1 x hidden_size]
+        concatenated = torch.cat((output.unsqueeze(-1), expected_annotation), 1) # [batch_size x 2*hidden_size x 1]
+
+        result = self.W_out(concatenated.squeeze()) # [batch_size x hidden_size]
+
+        return result.unsqueeze(1) # [batch_size x 1 x hidden_size]
 
