@@ -45,5 +45,11 @@ class Attention(nn.Module):
 
         result = self.W_out(concatenated.squeeze()) # [batch_size x hidden_size]
 
-        return result.unsqueeze(1) # [batch_size x 1 x hidden_size]
+        # Handle case of doing inference
+        if result.dim() == 1:
+            result = result.unsqueeze(0).unsqueeze(0)
+        else:
+            result = result.unsqueeze(1)
+
+        return result # [batch_size x 1 x hidden_size]
 
