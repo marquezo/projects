@@ -61,9 +61,15 @@ class DecoderRNN(nn.Module):
         # The idea is that instead of conditioning on one vector containing all the input,
         # condition on specific parts of the input
         if self.use_attention and encoder_outputs is not None:
-            #print("Before attention", hidden.size())
+            print("Before attention", hidden.size())
+
+            if self.num_layers > 1:
+                query = hidden[-1]
+            else:
+                query = hidden.squeeze(0)
+
             # [output and hidden: 1 x batch_size x hidden_size ]
-            output = self.attention(output.squeeze(0), hidden.squeeze(0), encoder_outputs)
+            output = self.attention(output.squeeze(0), query, encoder_outputs)
             #print("using attention in decoder:", output.size())
 
         output = F.relu(output) # [ batch_size x seq_len x hidden_size ]
@@ -73,5 +79,5 @@ class DecoderRNN(nn.Module):
 
         return output, hidden
 
-    def initHidden(self, batch_size):
-        return torch.zeros(self.num_layers, batch_size, self.hidden_size, device=device)
+    # def initHidden(self, batch_size):
+    #     return torch.zeros(self.num_layers, batch_size, self.hidden_size, device=device)
