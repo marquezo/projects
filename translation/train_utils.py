@@ -5,6 +5,7 @@ from lang import SOS_token, EOS_token, PAD_token
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 import numpy as np
+from nltk.translate.bleu_score import corpus_bleu, sentence_bleu
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -217,6 +218,9 @@ def evaluate(input_lang, output_lang, encoder, decoder, pair, reverse_input=Fals
         if not use_attention:
             encoder_output = None
 
+        #results = greedy_search(decoder, encoder_hidden, output_lang, encoder_output)
+        #return results
+
         results = beam_search(decoder, encoder_hidden, encoder_output)
 
         idx_highest_prob = 0
@@ -232,14 +236,14 @@ def evaluate(input_lang, output_lang, encoder, decoder, pair, reverse_input=Fals
         return output
 
 
-def greedy_search(decoder, encoder_hidden, output_lang):
+def greedy_search(decoder, encoder_hidden, output_lang, encoder_output):
     decoded_words = []
     decoder_hidden = encoder_hidden
     decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
 
     # An EOS token has to be spit out eventually
     while True:
-        decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+        decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_output)
         topv, topi = decoder_output.data.topk(1)
 
         if topi.item() == EOS_token:
@@ -251,7 +255,7 @@ def greedy_search(decoder, encoder_hidden, output_lang):
 
         decoder_input = topi.squeeze().detach()
 
-    print([word for word in decoded_words])
+    return [word for word in decoded_words]
 
 
 def beam_search(decoder, encoder_hidden, encoder_output=None, beam_width=3):
@@ -300,7 +304,7 @@ def beam_search(decoder, encoder_hidden, encoder_output=None, beam_width=3):
         # If we encounter an EOS, this candidate is a possible result
         for idx_, to_evaluate_tuple in enumerate(to_evaluate):
             if to_evaluate_tuple[3] == EOS_token:
-                results.append((to_evaluate_tuple[2], candidates[idx_]))  # Add probability and sequence
+                results.append((to_evaluate_tuple[2]/len(candidates[idx_]), candidates[idx_]))  # Add normalized probability and sequence
             else:
                 new_candidates.append(candidates[idx_])
                 to_evaluate_copy.append(to_evaluate_tuple)
@@ -337,14 +341,23 @@ def evaluateRandomly(valid_data, input_lang, output_lang, encoder, decoder,
     if simplify:
         valid_data = filterPairs(valid_data)
 
+    references = []
+    hypothesis = []
+
     for i in range(n):
         pair = random.choice(valid_data)
+        references.append([pair[1].split()])
         print('>', pair[0])
         print('=', pair[1])
         output_words = evaluate(input_lang, output_lang, encoder, decoder, [pair], reverse_input, use_attention)
+        hypothesis.append(output_words)
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')
+        print('Sentence BLEU score', sentence_bleu([pair[1].split()], output_words))
+
+    print('Corpus BLEU score', corpus_bleu(references, hypothesis))
+
 
 
 def get_largest(tensors, num_largest):

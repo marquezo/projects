@@ -11,6 +11,7 @@ def read_input():
     parser.add_argument('checkpoint')
     parser.add_argument('num_sentences', type=int)
     parser.add_argument('hidden_size', type=int)
+    parser.add_argument('num_layers', type=int)
     parser.add_argument('--reverse-input', dest='reverse_input', action='store_true')
     parser.add_argument('--no-reverse-input', dest='reverse_input', action='store_false')
     parser.add_argument('--attention', dest='use_attention', action='store_true')
@@ -24,6 +25,7 @@ def read_input():
     print("Read checkpoint: {}".format(args.checkpoint))
     print("Read number of sentences: {}".format(args.num_sentences))
     print("Read hidden size: {}".format(args.hidden_size))
+    print("Read number of layers: {}".format(args.num_layers))
     print("Read reverse input: {}".format(args.reverse_input))
     print("Read use_attention: {}".format(args.use_attention))
     print("Read simplify: {}".format(args.simplify))
@@ -42,8 +44,8 @@ if __name__ == "__main__":
     # Get datasets
     _, dev_set = get_datasets(from_lang, to_lang)
 
-    encoder = EncoderRNN(input_lang.n_words, args.hidden_size, 1).to(device)
-    decoder = DecoderRNN(output_lang.n_words, args.hidden_size, 1, dropout_p=0.1, use_attention=args.use_attention).to(device)
+    encoder = EncoderRNN(input_lang.n_words, args.hidden_size, args.num_layers).to(device)
+    decoder = DecoderRNN(output_lang.n_words, args.hidden_size, args.num_layers, dropout_p=0.1, use_attention=args.use_attention).to(device)
 
     encoder, decoder, _, _, _ = load_checkpoint(args.checkpoint, encoder, decoder, None)
 
