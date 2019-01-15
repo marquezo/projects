@@ -38,16 +38,14 @@ def showPlot(points):
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
 
-# Turn a Unicode string to plain ASCII, thanks to
-def unicodeToAscii(s):
-    return unidecode.unidecode(s)
 
 # Lowercase, trim, remove non-letter characters and make punctuation separate tokens
 def normalizeString(s):
-    s = unicodeToAscii(s.lower().strip())
-    s = re.sub(r"([.!?])", r" \1", s)
+    s = unidecode.unidecode(s.lower().strip())
+    s = re.sub(r"([.!?])", r" \1", s) # make punctuation separate tokens
     s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
     return s
+
 
 def readLangs(lang1, lang2, reverse=False):
     print("Reading lines...")
@@ -68,6 +66,7 @@ def readLangs(lang1, lang2, reverse=False):
         output_lang = Lang(lang2)
 
     return input_lang, output_lang, pairs
+
 
 def prepareData(lang1, lang2, reverse=False):
     input_lang, output_lang, pairs = readLangs(lang1, lang2, reverse)
