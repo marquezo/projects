@@ -1,4 +1,3 @@
 tqdm
 matplotlib
 unidecode
-pytorch
