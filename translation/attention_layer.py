@@ -13,8 +13,9 @@ class Attention(nn.Module):
         # use a 1D convolution instead of a linear layer to not depend on sequence length
         self.W_ref = nn.Conv1d(hidden_size, hidden_size, 1, 1)
         self.W_out = nn.Linear(hidden_size * 2, hidden_size)
-        V = torch.FloatTensor(hidden_size, device=device)
-
+        
+        # V parameter as in the paper
+        V = torch.randn(hidden_size, dtype=torch.float32, device=device)
         self.V = nn.Parameter(V)
         self.V.data.uniform_(-(1. / math.sqrt(hidden_size)), 1. / math.sqrt(hidden_size))
 
@@ -33,8 +34,16 @@ class Attention(nn.Module):
         query = self.W_query(query).unsqueeze(2)  # [batch_size x hidden_size x 1]
         ref = self.W_ref(ref)  # [batch_size x hidden_size x seq_len]
         expanded_query = query.repeat(1, 1, seq_len)  # [batch_size x hidden_size x seq_len]
+
+        #print("self.V {}".format(self.V.size()))
+
         V = self.V.unsqueeze(0).unsqueeze(0).repeat(batch_size, 1, 1)  # [batch_size x 1 x hidden_size]
-        logits = torch.bmm(V, torch.tanh(expanded_query + ref)).squeeze(1)
+        right_side = torch.tanh(expanded_query + ref)
+
+        #print("V {}".format(V.size()))
+        #print("Right side {}".format(right_side.size()))
+
+        logits = torch.bmm(V, right_side).squeeze(1)
         weights = F.softmax(logits, dim=1)
 
         # Compute the weighted sum of annotations: [batch_size x hidden_size x seq_len] x [batch_size x seq_len x 1]
