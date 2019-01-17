@@ -144,7 +144,7 @@ def train(input_tensor, target_tensor, encoder, decoder, optimizer,
 
 
 def trainIters(experiment_name, train_data, input_lang, output_lang, encoder, decoder, n_epochs, teacher_forcing_ratio, optimizer, simplify=False,
-               reverse_input=False, use_attention=False, learning_rate=0.01, batch_size=2):
+               reverse_input=False, use_attention=False, learning_rate=0.01, batch_size=2, save_loc='models'):
     # start = time.time()
     # plot_losses = []
 
@@ -199,7 +199,7 @@ def trainIters(experiment_name, train_data, input_lang, output_lang, encoder, de
         print("[{}] Average Loss after epoch {}/{}: {:5f}".format(experiment_name, epoch_idx + 1, n_epochs,
                                                                   print_loss_total/num_minibatches))
         save_checkpoint(epoch_idx + 1, encoder, decoder, optimizer, print_loss_total/num_minibatches,
-                        filename=experiment_name + ".tar")
+                        filename="{}/{}_e{}.tar".format(save_loc, experiment_name, epoch_idx + 1))
 
 
 def evaluate(input_lang, output_lang, encoder, decoder, pair, reverse_input=False, use_attention=False):

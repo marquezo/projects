@@ -21,6 +21,7 @@ def read_input():
     parser.add_argument('--reverse_input', action='store_true')
     parser.add_argument('--attention', dest='use_attention', action='store_true')
     parser.add_argument('--simplify', dest='simplify', action='store_true')
+    parser.add_argument('--save_loc', default='models')
     parser.set_defaults(feature=True)
 
     args = parser.parse_args()
@@ -33,10 +34,11 @@ def read_input():
     print("Read hidden size: {}".format(args.hidden_size))
     print("Read number of GRU layers: {}".format(args.num_layers))
     print("Read dropout: {}".format(args.dropout))
-    print("Read teacher forcing ratio: {}".format(args.teacher_forcing_ratio))
-    print("Read reverse input: {}".format(args.reverse_input))
+    print("Read teacher_forcing_ratio: {}".format(args.teacher_forcing_ratio))
+    print("Read reverse_input: {}".format(args.reverse_input))
     print("Read use_attention: {}".format(args.use_attention))
     print("Read simplify: {}".format(args.simplify))
+    print("Read save_loc: {}".format(args.save_loc))
 
     return args
 
@@ -68,11 +70,11 @@ if __name__ == "__main__":
         encoder, decoder, optimizer, epoch, loss = load_checkpoint(args.checkpoint, encoder, decoder, optimizer)
         trainIters(args.name, train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
                optimizer, simplify=args.simplify, reverse_input=args.reverse_input, use_attention=args.use_attention,
-                   learning_rate=args.lr, batch_size=args.batch_size)
+                   learning_rate=args.lr, batch_size=args.batch_size, save_loc=args.save_loc)
     else:
         print("Training from scratch")
         trainIters(args.name, train_set, input_lang, output_lang, encoder, decoder, args.num_epochs, args.teacher_forcing_ratio,
                optimizer, simplify=args.simplify, reverse_input=args.reverse_input, use_attention=args.use_attention,
-                   learning_rate=args.lr, batch_size=args.batch_size)
+                   learning_rate=args.lr, batch_size=args.batch_size, save_loc=args.save_loc)
 
     # TODO: Use BLEU score
