@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 
 ENV NAME translation
 
-CMD ["python", "main.py"]
+CMD ["python", "main.py", "trial-attention", "--num_epochs", "150", "--save_loc", "/models", "--attention"]

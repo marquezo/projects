@@ -1,15 +1,17 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+from attention_layer import Attention
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers):
+    def __init__(self, input_size, hidden_size, num_layers, dropout_p=0.1):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        self.dropout = nn.Dropout(dropout_p)
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True, num_layers=self.num_layers)
 
@@ -20,8 +22,7 @@ class EncoderRNN(nn.Module):
         :return:
         """
         embedded = self.embedding(input)
-
-        output = embedded
+        output = self.dropout(embedded)
         output, hidden = self.gru(output, hidden)
 
         return output, hidden
@@ -31,19 +32,22 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, output_size, hidden_size, num_layers, dropout_p=0.1):
+    def __init__(self, output_size, hidden_size, num_layers, dropout_p=0.1, use_attention=False):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.dropout_p = dropout_p
         self.num_layers = num_layers
 
         self.embedding = nn.Embedding(output_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True, num_layers=self.num_layers)
-        self.dropout = nn.Dropout(self.dropout_p)
+        self.dropout = nn.Dropout(dropout_p)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=-1)
+        self.use_attention = use_attention
 
-    def forward(self, input, hidden):
+        if self.use_attention:
+            self.attention = Attention(self.hidden_size).to(device)
+
+    def forward(self, input, hidden, encoder_outputs=None):
 
         output = self.embedding(input)
 
@@ -53,12 +57,27 @@ class DecoderRNN(nn.Module):
 
         output = self.dropout(output)
 
-        output = F.relu(output)
+        # Here is where we can use attention: output is the query and encoder_outputs are the ref
+        # The idea is that instead of conditioning on one vector containing all the input,
+        # condition on specific parts of the input
+        if self.use_attention and encoder_outputs is not None:
+            #print("Before attention", hidden.size())
+
+            if self.num_layers > 1:
+                query = hidden[-1]
+            else:
+                query = hidden.squeeze(0)
+
+            # [output and hidden: 1 x batch_size x hidden_size ]
+            output = self.attention(output.squeeze(0), query, encoder_outputs)
+            #print("using attention in decoder:", output.size())
+
+        output = F.relu(output) # [ batch_size x seq_len x hidden_size ]
         output, hidden = self.gru(output, hidden)
         output = self.out(output)
         output = self.softmax(output)
 
         return output, hidden
 
-    def initHidden(self, batch_size):
-        return torch.zeros(self.num_layers, batch_size, self.hidden_size, device=device)
+    # def initHidden(self, batch_size):
+    #     return torch.zeros(self.num_layers, batch_size, self.hidden_size, device=device)
