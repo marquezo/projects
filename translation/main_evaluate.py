@@ -5,7 +5,6 @@ import torch, argparse
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 def read_input():
     parser = argparse.ArgumentParser(description="Evaluate an NMT Seq2Seq model")
     parser.add_argument('checkpoint')
@@ -13,11 +12,8 @@ def read_input():
     parser.add_argument('hidden_size', type=int)
     parser.add_argument('num_layers', type=int)
     parser.add_argument('--reverse-input', dest='reverse_input', action='store_true')
-    parser.add_argument('--no-reverse-input', dest='reverse_input', action='store_false')
     parser.add_argument('--attention', dest='use_attention', action='store_true')
-    parser.add_argument('--no-attention', dest='use_attention', action='store_false')
     parser.add_argument('--simplify', dest='simplify', action='store_true')
-    parser.add_argument('--no-simplify', dest='simplify', action='store_false')
     parser.set_defaults(feature=True)
 
     args = parser.parse_args()
